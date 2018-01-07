@@ -1,0 +1,16 @@
+{
+  "name": "funcli",
+  "version": "0.0.1",
+  "description": "small, fun cli framework",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha -R spec test/*-spec.js",
+    "test:watch": "npm test -- --watch"
+  },
+  "keywords": [],
+  "author": "tony@lownds.com",
+  "license": "ISC",
+  "devDependencies": {
+    "mocha": "^4.1.0"
+  }
+}
