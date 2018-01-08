@@ -293,5 +293,13 @@ describe('funcli', function () {
       assert(errs.length === 0);
       assert.deepEqual(result, {x:'x', y: 'y', flag: true, opt: '1'});
     });
+
+    it('with missing args', function () {
+      funcli(commands, ['a']);
+      assert.ok(errs);
+      // Should print the command on usage line
+      assert(errs[0].match(/usage: \w+ a/m));
+      console.log(errs);
+    });
   });
 });

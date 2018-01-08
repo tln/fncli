@@ -154,7 +154,7 @@ module.exports.decodeArgs = decodeArgs;
  */
 function applyFunc(decoded, func) {
   if (decoded.error) {
-    console.error(`error: ${decoded.error}\n${usage(decoded.optDesc)}`);
+    console.error(usage(decoded));
   } else {
     func.apply(null, decoded.apply);
   }
@@ -167,9 +167,13 @@ function printIfError(decoded) {
   }
 }
 
-function usage(optDesc) {
-  let hasOptions = Object.keys(optDesc.options).length > 0;
-  let s = "usage: script";
+function usage({optDesc, error, command}) {
+  let s = `error: ${error}\nusage: script`;
+  if (command) {
+    optDesc = command.optDesc;
+    s += " " + command.name;
+  }
+  let hasOptions = Object.keys(optDesc.options).length > 0;  
   if (hasOptions) s += " [options]";
   for (let {name, required} of optDesc.positional) {
     if (!required) name = "[" + name + "]";
