@@ -3,7 +3,7 @@
 ```
 require('funcli')(
   // Pass a main function. Parameters become arguments or options
-  function main(name, {greeting="Hello", shout=false}) {
+  function (name, {greeting="Hello", shout=false}) {
 
   }
 );
@@ -15,6 +15,21 @@ usage: script [options] name
 options:
   --greeting=<value>
   --shout
+```
+
+## Sub-command style
+
+```
+require('funcli')({
+  // Pass an object with functions. Function names become 
+  // subcommands.
+  hello(name, {greeting="Hello", shout=false}) {
+
+  },
+  goodbye({shout=false}) {
+    
+  }
+});
 ```
 
 TODOS:

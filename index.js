@@ -17,8 +17,11 @@ module.exports = function (func, args) {
   }
 }
 
-function parseAndRunSubCommands() {
-  assert(false, "parseAndRunSubCommands not implemented");
+function parseAndRunSubCommands(args, commands) {
+  let opts = optDescFromCommands(commands);
+  let decoded = decodeArgs(opts, args);
+  let func = decoded.command ? commands[decoded.command.name] : null;
+  applyFunc(decoded, func);
 }
 
 function parseAndRunFunc(args, func) {
@@ -26,6 +29,26 @@ function parseAndRunFunc(args, func) {
   let decoded = decodeArgs(opts, args);
   applyFunc(decoded, func);
 }
+
+/**
+ * Return an opts data structure that describes the options and arguments.
+ * @param {*} func
+ */
+function optDescFromCommands(handlers) {
+  let commands = {};
+  for (let name in handlers) {
+    let optDesc = optDescFromSignature(handlers[name]);
+    commands[name] = {name, optDesc};
+  }
+  return {
+    optionParamIndex: null, 
+    options: {}, 
+    positional: [{name: 'command', required: true}],
+    commands
+  };
+}
+// For testing
+module.exports.optDescFromCommands = optDescFromCommands;
 
 /**
  * Return an opts data structure that describes the options and arguments.
@@ -62,6 +85,7 @@ module.exports.optDescFromSignature = optDescFromSignature;
  * Keys:
  *   values: object with values for all options
  *   optionValues: option flag values only (no positional)
+ *   command: entry from positional commands objects 
  *   apply: flattened arguments ready to apply
  *   error: "description of error"
  *   optDesc: structure used to parse options
@@ -69,15 +93,17 @@ module.exports.optDescFromSignature = optDescFromSignature;
  * @param {*} args
  */
 function decodeArgs(optDesc, argv) {
-  let result = {optDesc, values: {}, optionValues: {}, apply: []};
+  let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null};
   let args = argv.concat(), pos = optDesc.positional.concat();
   let arg, m;
   while (args.length) {
     arg = args.shift();
     if (m = arg.match(/^--(\w+)(?:=(.*))?/)) {
       let [, optName, optVal] = m;
-      let {name, hasArg} = optDesc.options[optName];
-      if (hasArg) {
+      let {name, hasArg} = optDesc.options[optName] || {};
+      if (!name) {
+        result.error = "Unknown option";
+      } else if (hasArg) {
         if (!optVal) optVal = args.shift();
         if (!optVal) result.error = "Option missing value";
       } else {
@@ -89,6 +115,18 @@ function decodeArgs(optDesc, argv) {
     } else {
       let {name} = pos.shift() || {};
       if (!name) result.error = "Too many arguments";
+      if (optDesc.commands) {
+        // swith to handling optDesc from command. Don't include the 
+        // command name in the result.
+        result.command = optDesc.commands[arg];
+        if (!result.command) {
+          result.error = "Command not found";
+        } else {
+          optDesc = result.command.optDesc;
+          pos = optDesc.positional.concat();
+        }
+        continue;
+      }
       result.apply.push(arg);
       result.values[name] = arg;
     }
@@ -122,6 +160,13 @@ function applyFunc(decoded, func) {
   }
 }
 
+
+function printIfError(decoded) {
+  if (decoded.error) {
+    console.error(`error: ${decoded.error}\n${usage(decoded.optDesc)}`);
+  }
+}
+
 function usage(optDesc) {
   let hasOptions = Object.keys(optDesc.options).length > 0;
   let s = "usage: script";
@@ -130,12 +175,20 @@ function usage(optDesc) {
     if (!required) name = "[" + name + "]";
     s += " " + name;
   }
-  s += "\n";
+  s += "\n\n";
   if (hasOptions) {
     s += "options:\n";
     for (let {name, hasArg} of Object.values(optDesc.options)) {
       s += `  --${name}${hasArg?'=<value>':''}\n`;
     }
+    s += "\n";
+  }
+  if (optDesc.commands) {
+    s += "commands:\n";
+    for (let {name, commandOptDesc} of Object.values(optDesc.commands)) {
+      s += `  ${name}\n`;
+    }
+    s += "\n";
   }
   return s;
 }
