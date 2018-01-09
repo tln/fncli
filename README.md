@@ -32,12 +32,41 @@ require('funcli')({
 });
 ```
 
-TODOS:
+## Including descriptions 
 
-- script name
-- better parsing of signatures(newlines kill it)
+Descriptions of commands, arguments and options can be accomplished using comments.
+
+```
+require('funcli')(
+  function (// Description of command
+    name, // Description of name
+    {
+      greeting="Hello", // Description of greeting
+      shout=false
+    }) {
+
+  }
+);
+```
+This would result in the following interface:
+
+```
+error: Missing required argument
+usage: script [options] name
+
+Description of command
+
+args:
+  name    Description of name
+
+options:
+  --greeting=<value>   Description of greeting
+  --shout=<value>
+```
+
+## Future work
+
 - short flag names, aliases
-- doc comments
-- auto-number?
 - rest parameters
+- auto-number?
 - usage handling in main

@@ -8,44 +8,72 @@ describe('optDescFromSignature', function () {
   it('simple function', function () {
     let result = funcli.optDescFromSignature((x, y)=>0);
     assert.deepEqual(result, {
+      synopsis: null,
       optionParamIndex: null,
       options: {},
-      positional: [{name: 'x', required: true}, {name: 'y', required: true}]
+      positional: [{name: 'x', required: true, synopsis: null}, {name: 'y', required: true, synopsis: null}]
     });
   });
   it('an optional arg', function () {
     let result = funcli.optDescFromSignature((port=0)=>0);
     assert.deepEqual(result, {
+      synopsis: null,
       optionParamIndex: null,
       options: {},
-      positional: [{name: 'port', required: false}]
+      positional: [{name: 'port', required: false, synopsis: null}]
     });
   });
   it('single option', function () {
     let result = funcli.optDescFromSignature(({port})=>0);
     assert.deepEqual(result, {
+      synopsis: null,
       optionParamIndex: 0,
-      options: {port: {name: 'port', hasArg: true}},
+      options: {port: {name: 'port', hasArg: true, synopsis: null}},
       positional: []
     });
   });
   it('flag option', function () {
     let result = funcli.optDescFromSignature(({verbose=false})=>0);
     assert.deepEqual(result, {
+      synopsis: null,
       optionParamIndex: 0,
-      options: {verbose: {name: 'verbose', hasArg: false}},
+      options: {verbose: {name: 'verbose', hasArg: false, synopsis: null}},
       positional: []
     });
   });
   it('kitchen sink', function () {
     let result = funcli.optDescFromSignature((host, port=0, {verbose=false, module})=>0);
     assert.deepEqual(result, {
+      synopsis: null,
       optionParamIndex: 2,
       options: {
-        verbose: {name: 'verbose', hasArg: false},
-        module: {name: 'module', hasArg: true}
+        verbose: {name: 'verbose', hasArg: false, synopsis: null},
+        module: {name: 'module', hasArg: true, synopsis: null}
       },
-      positional: [{name: 'host', required: true}, {name: 'port', required: false}]
+      positional: [{name: 'host', required: true, synopsis: null}, {name: 'port', required: false, synopsis: null}]
+    });
+  });
+  it('synopsis', function () {
+    let result = funcli.optDescFromSignature(
+      (/* synopsis */
+        host, // describe host
+        port=0, // describe port
+        {
+          verbose=false, // describe verbose
+          module // describe module
+        }
+      )=>0);
+    assert.deepEqual(result, {
+      synopsis: 'synopsis',
+      optionParamIndex: 2,
+      options: {
+        verbose: {name: 'verbose', hasArg: false, synopsis: 'describe verbose'},
+        module: {name: 'module', hasArg: true, synopsis: 'describe module'}
+      },
+      positional: [
+        {name: 'host', required: true, synopsis: 'describe host'}, 
+        {name: 'port', required: false, synopsis: 'describe port'}
+      ]
     });
   });
 });
@@ -68,20 +96,22 @@ describe('optDescFromCommands', function () {
         a: {
           name: 'a',
           optDesc: {
+            synopsis: null,
             optionParamIndex: null,
             options: {},
-            positional: [{name: 'x', required: true}, {name: 'y', required: true}]
+            positional: [{name: 'x', required: true, synopsis: null}, {name: 'y', required: true, synopsis: null}]
           }
         },
         b: {
           name: 'b',
           optDesc: {
+            synopsis: null,
             optionParamIndex: 2,
             options: {
-              verbose: {name: 'verbose', hasArg: false},
-              module: {name: 'module', hasArg: true}
+              verbose: {name: 'verbose', hasArg: false, synopsis: null},
+              module: {name: 'module', hasArg: true, synopsis: null}
             },
-            positional: [{name: 'host', required: true}, {name: 'port', required: false}]
+            positional: [{name: 'host', required: true, synopsis: null}, {name: 'port', required: false, synopsis: null}]
           }
         }
       }
@@ -181,7 +211,7 @@ describe('decodeArgs', function () {
             optDesc: {
               optionParamIndex: null,
               options: {},
-              positional: [{name: 'x', required: true}, {name: 'y', required: true}]
+              positional: [{name: 'x', required: true, synopsis: null}, {name: 'y', required: true, synopsis: null}]
             }
           },
           b: {
@@ -189,17 +219,16 @@ describe('decodeArgs', function () {
             optDesc: {
               optionParamIndex: 2,
               options: {
-                verbose: {name: 'verbose', hasArg: false},
-                module: {name: 'module', hasArg: true}
+                verbose: {name: 'verbose', hasArg: false, synopsis: null},
+                module: {name: 'module', hasArg: true, synopsis: null}
               },
-              positional: [{name: 'host', required: true}, {name: 'port', required: false}]
+              positional: [{name: 'host', required: true, synopsis: null}, {name: 'port', required: false, synopsis: null}]
             }
           }
         }
       };
     });   
     it('parses a command', function () {
-      console.log(opts);
       let result = funcli.decodeArgs(opts, ['b', 'x', '--module=funcli']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['x', undefined, {module: 'funcli'}]);
@@ -210,96 +239,90 @@ describe('decodeArgs', function () {
 });
 
 describe('funcli', function () {
-  var funcli;
-  beforeEach(function () {
-    funcli = require('../index');
-  });
+  let errs = [], result = null;
+  function subject(fn, args) {
+    let funcli = require('../index');
+    let orig = console.error;
+    errs = []; result = null;
+    console.error = (e) => errs.push(e);
+    try {
+      funcli(fn, ['node', 'script.js'].concat(args));
+    } finally {
+      console.error = orig;
+    }
+  }
+
   it('calls the function', function () {
     let x = 0, fn = () => x++
-    funcli(fn, []);
+    subject(fn, []);
     console.assert(x === 1);
   });
   it('calls the function with args', function () {
     let x = 0, fn = (y) => x += +y;
-    funcli(fn, ['2']);
+    subject(fn, ['2']);
     console.assert(x === 2);
   });
   it('prints an error when arg is not passed', function () {
     let x = 0, fn = (y) => x += +y;
-    let errs = [], orig = console.error;
-    console.error = (e) => errs.push(e);
-    funcli(fn, []);
+    subject(fn, []);
     console.assert(errs.length);
   });
   describe('parses arguments correctly', function () {
-    var result, errs, orig;
     let fn = (x, y=0, {flag=false, opt}) => result = {x, y, flag, opt};
-    beforeEach(function () {
-      result = null;
-      errs = [];
-      orig = console.error;
-      console.error = (e) => errs.push(e);
-    });
-    afterEach(function () {
-      console.error = orig;
-    });
-
     it('with min args', function () {
-      funcli(fn, ['x']);
-      assert(errs.length === 0);
+      subject(fn, ['x']);
+      assert(errs.length === 0, errs);
       assert.deepEqual(result, {x:'x', y: 0, flag: false, opt: undefined});
     });
 
     it('with all args', function () {
-      funcli(fn, ['--flag', '--opt=1', 'x', 'y']);
+      subject(fn, ['--flag', '--opt=1', 'x', 'y']);
       assert(errs.length === 0);
       assert.deepEqual(result, {x:'x', y: 'y', flag: true, opt: '1'});
     });
   });
   describe('parses commands correctly', function () {
-    var result, errs, orig;
     let commands = {
-      a(x, y=0, {flag=false, opt}) { 
+      a(// describe a
+        x, // describe x
+        y=0, 
+        {
+          flag=false, 
+          opt // describe opt
+        }) { 
         result = {x, y, flag, opt}; 
       },
       b() {
         result = 'b';
       }
-    }
-    beforeEach(function () {
-      result = null;
-      errs = [];
-      orig = console.error;
-      console.error = (e) => errs.push(e);
-    });
-    afterEach(function () {
-      console.error = orig;
-    });
+    };
 
     it('with no args', function () {
-      funcli(commands, []);
+      subject(commands, []);
       assert.ok(errs);
-      console.log(errs);
     });
 
     it('with min args', function () {
-      funcli(commands, ['a', 'x']);
+      subject(commands, ['a', 'x']);
       assert(errs.length === 0);
       assert.deepEqual(result, {x:'x', y: 0, flag: false, opt: undefined});
     });
 
     it('with all args', function () {
-      funcli(commands, ['a', '--flag', '--opt=1', 'x', 'y']);
+      subject(commands, ['a', '--flag', '--opt=1', 'x', 'y']);
       assert(errs.length === 0);
       assert.deepEqual(result, {x:'x', y: 'y', flag: true, opt: '1'});
     });
 
     it('with missing args', function () {
-      funcli(commands, ['a']);
+      subject(commands, ['a']);
       assert.ok(errs);
       // Should print the command on usage line
-      assert(errs[0].match(/usage: \w+ a/m));
-      console.log(errs);
+      assert(errs[0].match(/usage: script.js a/m), errs);
+      // Should include the synopses
+      assert(errs[0].match(/describe a/m), errs);
+      assert(errs[0].match(/describe x/m), errs);
+      assert(errs[0].match(/describe opt/m), errs);
     });
   });
 });

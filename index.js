@@ -3,29 +3,32 @@
  * Parses argv based on the given function signature, and
  * then calls the function.
  */
-module.exports = function (func, args) {
-  args = args || process.argv.slice(2); // chop off 'node' and script name
+module.exports = function (func, argv=process.argv) {
   try {
     if (typeof func === 'function') {
-      parseAndRunFunc(args, func);
+      parseAndRunFunc(argv, func);
     } else {
       // sub-command style
-      parseAndRunSubCommands(args, func);
+      parseAndRunSubCommands(argv, func);
     }
   } catch(e) {
     console.error(e);
   }
 }
 
-function parseAndRunSubCommands(args, commands) {
+function parseAndRunSubCommands(argv, commands) {
+  let [, arg0, ...args] = argv;
   let opts = optDescFromCommands(commands);
+  opts.arg0 = arg0;
   let decoded = decodeArgs(opts, args);
   let func = decoded.command ? commands[decoded.command.name] : null;
-  applyFunc(decoded, func);
+  applyFunc(decoded, func, arg0);
 }
 
-function parseAndRunFunc(args, func) {
+function parseAndRunFunc(argv, func) {
+  let [, arg0, ...args] = argv;
   let opts = optDescFromSignature(func);
+  opts.arg0 = arg0;
   let decoded = decodeArgs(opts, args);
   applyFunc(decoded, func);
 }
@@ -50,6 +53,22 @@ function optDescFromCommands(handlers) {
 // For testing
 module.exports.optDescFromCommands = optDescFromCommands;
 
+function paramString(func) {
+  // extract param string
+  let [, params] = /\(\s*([^)]*)/.exec(func.toString());
+  return extractComment(params);
+}
+
+function extractComment(params) {
+  let m = /^\/\/([^\n]+)|^\/\*(.*?)\*\//.exec(params);
+  let comment = null;
+  if (m) {
+    comment = (m[1] || m[2]).trim();
+    params = params.substring(m[0].length + m.index);
+  }
+ return [comment, params]
+}
+
 /**
  * Return an opts data structure that describes the options and arguments.
  * @param {*} func
@@ -57,11 +76,13 @@ module.exports.optDescFromCommands = optDescFromCommands;
 function optDescFromSignature(func) {
   // Find arguments from function source code. This requires parens
   // and breaks if any optional values use parens, or on getters, etc.
-  let [, params] = /\(\s*(.*?)\)/.exec(func.toString());
-  let re = /({)|(}\s*)|(\w+)(\s*=([^,}]+))?,?\s*/g, m, inOptions = false;
-  let result = {optionParamIndex: null, options: {}, positional: []};
+  let [synopsis, params] = paramString(func);
+  let re = /({)|(}\s*)|(\w+)(?:\s*=([^,}]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
+  let result = {synopsis, optionParamIndex: null, options: {}, positional: []};
   while (m = re.exec(params)) {
-    let [, startOptions, endOptions, name, , defaultExpr] = m;
+    let [, startOptions, endOptions, name, defaultExpr, synopsis, synopsis2] = m;
+    synopsis = synopsis || synopsis2 || null;
+    if (synopsis) synopsis = synopsis.trim();
     if (startOptions) {
       if (result.optionParamIndex !== null) throw "Can't nest/repeat options";
       inOptions = true;
@@ -70,9 +91,9 @@ function optDescFromSignature(func) {
       console.assert(inOptions);
       inOptions = false;
     } else if (inOptions) {
-      result.options[name] = {name, hasArg: defaultExpr !== 'false'};
+      result.options[name] = {name, hasArg: defaultExpr !== 'false', synopsis};
     } else {
-      result.positional.push({name, required: !defaultExpr});
+      result.positional.push({name, required: !defaultExpr, synopsis});
     }
   }
   return result;
@@ -152,7 +173,7 @@ module.exports.decodeArgs = decodeArgs;
  * @param {*} args
  * @param {*} func
  */
-function applyFunc(decoded, func) {
+function applyFunc(decoded, func, arg0) {
   if (decoded.error) {
     console.error(usage(decoded));
   } else {
@@ -160,37 +181,53 @@ function applyFunc(decoded, func) {
   }
 }
 
-
 function printIfError(decoded) {
   if (decoded.error) {
     console.error(`error: ${decoded.error}\n${usage(decoded.optDesc)}`);
   }
 }
 
+const {basename} = require('path');
 function usage({optDesc, error, command}) {
-  let s = `error: ${error}\nusage: script`;
+  let {arg0} = optDesc;
+  console.assert(arg0);
+  let s = `error: ${error}\nusage: ${basename(arg0)}`;
   if (command) {
     optDesc = command.optDesc;
     s += " " + command.name;
   }
   let hasOptions = Object.keys(optDesc.options).length > 0;  
   if (hasOptions) s += " [options]";
-  for (let {name, required} of optDesc.positional) {
+  let positionalSynopsis = '';
+  for (let {name, required, synopsis} of optDesc.positional) {
     if (!required) name = "[" + name + "]";
     s += " " + name;
+    if (synopsis) {
+      positionalSynopsis += `  ${name}    ${synopsis}`;
+    }
   }
   s += "\n\n";
+  if (optDesc.synopsis) {
+    s += optDesc.synopsis + "\n\n";
+  }
+  if (positionalSynopsis) {
+    s += `args:\n${positionalSynopsis}\n\n`;
+  }
   if (hasOptions) {
     s += "options:\n";
-    for (let {name, hasArg} of Object.values(optDesc.options)) {
-      s += `  --${name}${hasArg?'=<value>':''}\n`;
+    for (let {name, hasArg, synopsis} of Object.values(optDesc.options)) {
+      s += `  --${name}${hasArg?'=<value>':''}`;
+      if (synopsis) s += `   ${synopsis}`;
+      s += '\n';
     }
     s += "\n";
   }
   if (optDesc.commands) {
     s += "commands:\n";
-    for (let {name, commandOptDesc} of Object.values(optDesc.commands)) {
-      s += `  ${name}\n`;
+    for (let {name, optDesc: commandOptDesc} of Object.values(optDesc.commands)) {
+      s += `  ${name}`;
+      if (commandOptDesc.synopsis) s += `   ${commandOptDesc.synopsis}`;
+      s += '\n';
     }
     s += "\n";
   }
