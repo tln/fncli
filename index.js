@@ -44,8 +44,8 @@ function optDescFromCommands(handlers) {
     commands[name] = {name, optDesc};
   }
   return {
-    optionParamIndex: null, 
-    options: {}, 
+    optionParamIndex: null,
+    options: {},
     positional: [{name: 'command', required: true}],
     commands
   };
@@ -106,7 +106,7 @@ module.exports.optDescFromSignature = optDescFromSignature;
  * Keys:
  *   values: object with values for all options
  *   optionValues: option flag values only (no positional)
- *   command: entry from positional commands objects 
+ *   command: entry from positional commands objects
  *   apply: flattened arguments ready to apply
  *   error: "description of error"
  *   optDesc: structure used to parse options
@@ -133,11 +133,32 @@ function decodeArgs(optDesc, argv) {
       }
       result.optionValues[name] = optVal;
       result.values[name] = optVal;
+    } else if (arg.match(/^-/)) {
+      // Process short args
+      arg = arg.substring(1);
+      do {
+        flag = arg[0];
+        arg = arg.substring(1);
+        let {name, hasArg} = optDesc.options[flag] || {};
+        let optVal = null;
+        if (!name) {
+          result.error = "Unknown option";
+        } else if (hasArg) {
+          optVal = arg;
+          arg = '';
+          if (!optVal) optVal = args.shift();
+          if (!optVal) result.error = "Option missing value";
+        } else {
+          optVal = true;
+        }
+        result.optionValues[name] = optVal;
+        result.values[name] = optVal;
+      } while (arg);
     } else {
       let {name} = pos.shift() || {};
       if (!name) result.error = "Too many arguments";
       if (optDesc.commands) {
-        // swith to handling optDesc from command. Don't include the 
+        // swith to handling optDesc from command. Don't include the
         // command name in the result.
         result.command = optDesc.commands[arg];
         if (!result.command) {
@@ -196,7 +217,7 @@ function usage({optDesc, error, command}) {
     optDesc = command.optDesc;
     s += " " + command.name;
   }
-  let hasOptions = Object.keys(optDesc.options).length > 0;  
+  let hasOptions = Object.keys(optDesc.options).length > 0;
   if (hasOptions) s += " [options]";
   let positionalSynopsis = '';
   for (let {name, required, synopsis} of optDesc.positional) {
