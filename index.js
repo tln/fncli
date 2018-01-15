@@ -77,12 +77,13 @@ function optDescFromSignature(func) {
   // Find arguments from function source code. This requires parens
   // and breaks if any optional values use parens, or on getters, etc.
   let [synopsis, params] = paramString(func);
-  let re = /({)|(}\s*)|(\w+)(?:\s*=([^,}]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
+  let re = /({)|(}\s*)|(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
   let result = {synopsis, optionParamIndex: null, options: {}, positional: []};
   while (m = re.exec(params)) {
-    let [, startOptions, endOptions, name, defaultExpr, synopsis, synopsis2] = m;
+    let [, startOptions, endOptions, name, alias, defaultExpr, synopsis, synopsis2] = m;
     synopsis = synopsis || synopsis2 || null;
     if (synopsis) synopsis = synopsis.trim();
+    if (defaultExpr) defaultExpr = defaultExpr.trim();
     if (startOptions) {
       if (result.optionParamIndex !== null) throw "Can't nest/repeat options";
       inOptions = true;
@@ -92,6 +93,10 @@ function optDescFromSignature(func) {
       inOptions = false;
     } else if (inOptions) {
       result.options[name] = {name, hasArg: defaultExpr !== 'false', synopsis};
+      if (alias) {
+        result.options[name].alias = alias;
+        result.options[alias] = result.options[name];
+      }
     } else {
       result.positional.push({name, required: !defaultExpr, synopsis});
     }
@@ -236,8 +241,16 @@ function usage({optDesc, error, command}) {
   }
   if (hasOptions) {
     s += "options:\n";
-    for (let {name, hasArg, synopsis} of Object.values(optDesc.options)) {
-      s += `  --${name}${hasArg?'=<value>':''}`;
+    for (let [key, {name, alias, hasArg, synopsis}] of Object.entries(optDesc.options)) {
+      if (key !== name) continue;
+      s += '  ';
+      if (alias) {
+        if (alias.length > name.length) [alias, name] = [name, alias];
+        if (alias.length > 1) alias = '-' + alias;
+        s += `-${alias}, `;
+      }
+      if (name.length > 1) name = '-' + name;
+      s += `-${name}${hasArg?'=<value>':''}`;
       if (synopsis) s += `   ${synopsis}`;
       s += '\n';
     }

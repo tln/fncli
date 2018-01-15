@@ -76,6 +76,22 @@ describe('optDescFromSignature', function () {
       ]
     });
   });
+  it('option aliases', function () {
+    let result = funcli.optDescFromSignature(({m: module,
+      v: verbose=false
+    })=>0);
+    assert.deepEqual(result, {
+      synopsis: null,
+      optionParamIndex: 0,
+      options: {
+        verbose: {name: 'v', alias: 'verbose', hasArg: false, synopsis: null},
+        v: {name: 'v', alias: 'verbose', hasArg: false, synopsis: null},
+        module: {name: 'm', alias: 'module', hasArg: true, synopsis: null},
+        m: {name: 'm', alias: 'module', hasArg: true, synopsis: null},
+      },
+      positional: []
+    });
+  });
 });
 
 describe('optDescFromCommands', function () {
@@ -349,8 +365,8 @@ describe('funcli', function () {
         x, // describe x
         y=0,
         {
-          flag=false,
-          opt // describe opt
+          f: flag=false,
+          o: opt // describe opt
         }) {
         result = {x, y, flag, opt};
       },
@@ -370,6 +386,12 @@ describe('funcli', function () {
       assert.deepEqual(result, {x:'x', y: 0, flag: false, opt: undefined});
     });
 
+    it('with short arg', function () {
+      subject(commands, ['a', '-fo1', 'x']);
+      assert(errs.length === 0);
+      assert.deepEqual(result, {x:'x', y: 0, flag: true, opt: '1'});
+    });
+
     it('with all args', function () {
       subject(commands, ['a', '--flag', '--opt=1', 'x', 'y']);
       assert(errs.length === 0);
@@ -385,6 +407,8 @@ describe('funcli', function () {
       assert(errs[0].match(/describe a/m), errs);
       assert(errs[0].match(/describe x/m), errs);
       assert(errs[0].match(/describe opt/m), errs);
+      // Should show the short option
+      assert(errs[0].match(/-o, --opt/m), errs);
     });
   });
 });

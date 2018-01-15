@@ -3,8 +3,10 @@ require('..')(
     name, // Description of name
     {
       greeting="Hello", // Description of greeting
-      shout=false
+      s: shout=false
     }) {
-
+    var output = `${greeting} ${name}!`;
+    if (shout) output = output.toUpperCase();
+    console.log(output);
   }
 );

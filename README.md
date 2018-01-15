@@ -21,18 +21,18 @@ options:
 
 ```
 require('funcli')({
-  // Pass an object with functions. Function names become 
+  // Pass an object with functions. Function names become
   // subcommands.
   hello(name, {greeting="Hello", shout=false}) {
 
   },
   goodbye({shout=false}) {
-    
+
   }
 });
 ```
 
-## Including descriptions 
+## Including descriptions
 
 Descriptions of commands, arguments and options can be accomplished using comments.
 
@@ -64,9 +64,28 @@ options:
   --shout=<value>
 ```
 
+## Aliases, short options
+
+Single-letter options become short options. Aliases use ES6 syntax for assigning to new variable names.
+In this example, the `-s` option and `--shout` are aliases.
+
+```
+require('funcli')(
+  function (// Description of command
+    name, // Description of name
+    {
+      greeting="Hello", // Description of greeting
+      s: shout=false
+    }) {
+      // Use `shout` in here
+  }
+);
+```
+
+
 ## Future work
 
-- short flag names, aliases
 - rest parameters
 - auto-number?
+- kebabification
 - usage handling in main
