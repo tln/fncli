@@ -82,10 +82,23 @@ require('funcli')(
 );
 ```
 
+## Repeating parameters
+
+Rest parameters allow zero or more arguments to be passed.
+
+```
+require('funcli')(
+  function (
+    ...names,
+    ) {
+
+  }
+);
+```
+
 
 ## Future work
 
-- rest parameters
 - auto-number?
 - kebabification
 - usage handling in main

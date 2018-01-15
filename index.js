@@ -77,10 +77,11 @@ function optDescFromSignature(func) {
   // Find arguments from function source code. This requires parens
   // and breaks if any optional values use parens, or on getters, etc.
   let [synopsis, params] = paramString(func);
-  let re = /({)|(}\s*)|(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
+  let re = /({)|(}\s*)|(\.\.\.)?(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
+
   let result = {synopsis, optionParamIndex: null, options: {}, positional: []};
   while (m = re.exec(params)) {
-    let [, startOptions, endOptions, name, alias, defaultExpr, synopsis, synopsis2] = m;
+    let [, startOptions, endOptions, dotdotdot, name, alias, defaultExpr, synopsis, synopsis2] = m;
     synopsis = synopsis || synopsis2 || null;
     if (synopsis) synopsis = synopsis.trim();
     if (defaultExpr) defaultExpr = defaultExpr.trim();
@@ -98,7 +99,8 @@ function optDescFromSignature(func) {
         result.options[alias] = result.options[name];
       }
     } else {
-      result.positional.push({name, required: !defaultExpr, synopsis});
+      let rest = !!dotdotdot;
+      result.positional.push({name, required: !defaultExpr && !rest, synopsis, rest});
     }
   }
   return result;
@@ -160,10 +162,10 @@ function decodeArgs(optDesc, argv) {
         result.values[name] = optVal;
       } while (arg);
     } else {
-      let {name} = pos.shift() || {};
+      let {name, rest} = pos.shift() || {};
       if (!name) result.error = "Too many arguments";
       if (optDesc.commands) {
-        // swith to handling optDesc from command. Don't include the
+        // switch to handling optDesc from command. Don't include the
         // command name in the result.
         result.command = optDesc.commands[arg];
         if (!result.command) {
@@ -174,14 +176,20 @@ function decodeArgs(optDesc, argv) {
         }
         continue;
       }
-      result.apply.push(arg);
-      result.values[name] = arg;
+      if (rest) {
+        result.apply.push(arg, ...args);
+        result.values[name] = [arg].concat(args);
+        args = [];
+      } else {
+        result.apply.push(arg);
+        result.values[name] = arg;
+      }
     }
   }
-  for (let {required} of pos) {
+  for (let {rest, required} of pos) {
     if (required) {
       result.error = "Missing required argument";
-    } else {
+    } else if (!rest) {
       result.apply.push(undefined);
     }
   }
@@ -225,11 +233,12 @@ function usage({optDesc, error, command}) {
   let hasOptions = Object.keys(optDesc.options).length > 0;
   if (hasOptions) s += " [options]";
   let positionalSynopsis = '';
-  for (let {name, required, synopsis} of optDesc.positional) {
+  for (let {name, rest, required, synopsis} of optDesc.positional) {
+    if (rest) name += '...';
     if (!required) name = "[" + name + "]";
     s += " " + name;
     if (synopsis) {
-      positionalSynopsis += `  ${name}    ${synopsis}`;
+      positionalSynopsis += `  ${name}    ${synopsis}\n`;
     }
   }
   s += "\n\n";

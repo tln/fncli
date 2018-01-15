@@ -11,7 +11,7 @@ describe('optDescFromSignature', function () {
       synopsis: null,
       optionParamIndex: null,
       options: {},
-      positional: [{name: 'x', required: true, synopsis: null}, {name: 'y', required: true, synopsis: null}]
+      positional: [{name: 'x', rest: false, required: true, synopsis: null}, {name: 'y', rest: false, required: true, synopsis: null}]
     });
   });
   it('an optional arg', function () {
@@ -20,7 +20,7 @@ describe('optDescFromSignature', function () {
       synopsis: null,
       optionParamIndex: null,
       options: {},
-      positional: [{name: 'port', required: false, synopsis: null}]
+      positional: [{name: 'port', rest: false, required: false, synopsis: null}]
     });
   });
   it('single option', function () {
@@ -50,7 +50,7 @@ describe('optDescFromSignature', function () {
         verbose: {name: 'verbose', hasArg: false, synopsis: null},
         module: {name: 'module', hasArg: true, synopsis: null}
       },
-      positional: [{name: 'host', required: true, synopsis: null}, {name: 'port', required: false, synopsis: null}]
+      positional: [{name: 'host', rest: false, required: true, synopsis: null}, {name: 'port', rest: false, required: false, synopsis: null}]
     });
   });
   it('synopsis', function () {
@@ -71,8 +71,8 @@ describe('optDescFromSignature', function () {
         module: {name: 'module', hasArg: true, synopsis: 'describe module'}
       },
       positional: [
-        {name: 'host', required: true, synopsis: 'describe host'},
-        {name: 'port', required: false, synopsis: 'describe port'}
+        {name: 'host', rest: false, required: true, synopsis: 'describe host'},
+        {name: 'port', rest: false, required: false, synopsis: 'describe port'}
       ]
     });
   });
@@ -90,6 +90,15 @@ describe('optDescFromSignature', function () {
         m: {name: 'm', alias: 'module', hasArg: true, synopsis: null},
       },
       positional: []
+    });
+  });
+  it('rest param', function () {
+    let result = funcli.optDescFromSignature((...x)=>0);
+    assert.deepEqual(result, {
+      synopsis: null,
+      optionParamIndex: null,
+      options: {},
+      positional: [{name: 'x', rest: false, required: false, rest: true, synopsis: null}]
     });
   });
 });
@@ -115,7 +124,7 @@ describe('optDescFromCommands', function () {
             synopsis: null,
             optionParamIndex: null,
             options: {},
-            positional: [{name: 'x', required: true, synopsis: null}, {name: 'y', required: true, synopsis: null}]
+            positional: [{name: 'x', rest: false, required: true, synopsis: null}, {name: 'y', rest: false, required: true, synopsis: null}]
           }
         },
         b: {
@@ -127,7 +136,7 @@ describe('optDescFromCommands', function () {
               verbose: {name: 'verbose', hasArg: false, synopsis: null},
               module: {name: 'module', hasArg: true, synopsis: null}
             },
-            positional: [{name: 'host', required: true, synopsis: null}, {name: 'port', required: false, synopsis: null}]
+            positional: [{name: 'host', rest: false, required: true, synopsis: null}, {name: 'port', rest: false, required: false, synopsis: null}]
           }
         }
       }
@@ -145,7 +154,7 @@ describe('decodeArgs', function () {
         verbose: {name: 'verbose', hasArg: false},
         module: {name: 'module', hasArg: true},
       },
-      positional: [{name: 'host', required: true}, {name: 'port', required: false}]
+      positional: [{name: 'host', rest: false, required: true}, {name: 'port', rest: false, required: false}]
     };
   });
   it('gives error with no args', function () {
@@ -224,7 +233,7 @@ describe('decodeArgs', function () {
           v: {name: 'v', hasArg: false},
           m: {name: 'm', hasArg: true},
         },
-        positional: [{name: 'host', required: true}, {name: 'port', required: false}]
+        positional: [{name: 'host', rest: false, required: true}, {name: 'port', rest: false, required: false}]
       };
     });
     it('parses an option', function () {
@@ -281,7 +290,7 @@ describe('decodeArgs', function () {
         options: {},
         positional: [{
           name: 'command',
-          required: true
+          rest: false, required: true
         }],
         commands: {
           a: {
@@ -289,7 +298,7 @@ describe('decodeArgs', function () {
             optDesc: {
               optionParamIndex: null,
               options: {},
-              positional: [{name: 'x', required: true, synopsis: null}, {name: 'y', required: true, synopsis: null}]
+              positional: [{name: 'x', rest: false, required: true, synopsis: null}, {name: 'y', rest: false, required: true, synopsis: null}]
             }
           },
           b: {
@@ -300,7 +309,7 @@ describe('decodeArgs', function () {
                 verbose: {name: 'verbose', hasArg: false, synopsis: null},
                 module: {name: 'module', hasArg: true, synopsis: null}
               },
-              positional: [{name: 'host', required: true, synopsis: null}, {name: 'port', required: false, synopsis: null}]
+              positional: [{name: 'host', rest: false, required: true, synopsis: null}, {name: 'port', rest: false, required: false, synopsis: null}]
             }
           }
         }
@@ -312,6 +321,32 @@ describe('decodeArgs', function () {
       assert.deepEqual(result.apply, ['x', undefined, {module: 'funcli'}]);
       assert.deepEqual(result.values, {host: 'x', module: 'funcli'});
       assert.deepEqual(result.optionValues, {module: 'funcli'});
+    });
+  });
+  describe('rest params', function () {
+    beforeEach(function () {
+      opts = {
+        optionParamIndex: null,
+        options: {},
+        positional: [
+          {name: 'x', rest: false, required: true, synopsis: null},
+          {name: 'y', rest: true, required: false, synopsis: null}]
+      };
+    });
+    it('parses extra args', function () {
+      let result = funcli.decodeArgs(opts, ['1']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['1']);
+    });
+    it('parses extra args', function () {
+      let result = funcli.decodeArgs(opts, ['1', '2']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['1', '2']);
+    });
+    it('parses extra args', function () {
+      let result = funcli.decodeArgs(opts, ['1', '2', '3']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['1', '2', '3']);
     });
   })
 });
@@ -346,17 +381,23 @@ describe('funcli', function () {
     console.assert(errs.length);
   });
   describe('parses arguments correctly', function () {
-    let fn = (x, y=0, {flag=false, opt}) => result = {x, y, flag, opt};
+    let fn = (x, y=0, {flag=false, opt}, ...z) => result = {x, y, flag, opt, z};
     it('with min args', function () {
       subject(fn, ['x']);
       assert(errs.length === 0, errs);
-      assert.deepEqual(result, {x:'x', y: 0, flag: false, opt: undefined});
+      assert.deepEqual(result, {x:'x', y: 0, flag: false, opt: undefined, z: []});
     });
 
     it('with all args', function () {
       subject(fn, ['--flag', '--opt=1', 'x', 'y']);
       assert(errs.length === 0);
-      assert.deepEqual(result, {x:'x', y: 'y', flag: true, opt: '1'});
+      assert.deepEqual(result, {x:'x', y: 'y', flag: true, opt: '1', z: []});
+    });
+
+    it('with additional args', function () {
+      subject(fn, ['--flag', '--opt=1', 'x', 'y', 'z', 'z2']);
+      assert(errs.length === 0);
+      assert.deepEqual(result, {x:'x', y: 'y', flag: true, opt: '1', z: ['z', 'z2']});
     });
   });
   describe('parses commands correctly', function () {
@@ -367,7 +408,9 @@ describe('funcli', function () {
         {
           f: flag=false,
           o: opt // describe opt
-        }) {
+        },
+        ...z
+      ) {
         result = {x, y, flag, opt};
       },
       b() {
@@ -409,6 +452,8 @@ describe('funcli', function () {
       assert(errs[0].match(/describe opt/m), errs);
       // Should show the short option
       assert(errs[0].match(/-o, --opt/m), errs);
+      // Should show the rest parameter
+      assert(errs[0].match(/\[z\.\.\.\]/m), errs);
     });
   });
 });
