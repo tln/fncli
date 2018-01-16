@@ -349,6 +349,29 @@ describe('decodeArgs', function () {
       assert.deepEqual(result.apply, ['1', '2', '3']);
     });
   })
+  describe('camelCase params', function () {
+    beforeEach(function () {
+      opts = {
+        optionParamIndex: 1,
+        options: {
+          theOption: {name: 'theOption',  hasArg: true, synopsis: null}
+        },
+        positional: [
+          {name: 'theParam', rest: false, required: true, synopsis: null}
+        ]
+      };
+    });
+    it('parses camelCase args', function () {
+      let result = funcli.decodeArgs(opts, ['hello', '--theOption=1']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['hello', {theOption: '1'}]);
+    });
+    it('parses kebab args', function () {
+      let result = funcli.decodeArgs(opts, ['hello', '--the-option=1']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['hello', {theOption: '1'}]);
+    });
+  });
 });
 
 describe('funcli', function () {
@@ -454,6 +477,38 @@ describe('funcli', function () {
       assert(errs[0].match(/-o, --opt/m), errs);
       // Should show the rest parameter
       assert(errs[0].match(/\[z\.\.\.\]/m), errs);
+    });
+  });
+  describe('handles camelCase <=> kebab case correctly', function () {
+    let fn = (theParam, {theOption, O=false}) => result = [theParam, theOption, O];
+    it('parses camelCase option', function () {
+      subject(fn, ['1', '--theOption=2']);
+      assert(errs.length === 0);
+      assert.deepEqual(result, ['1', '2', false]);
+    });
+    it('parses kebab-case option', function () {
+      subject(fn, ['1', '--the-option=2']);
+      assert(errs.length === 0);
+      assert.deepEqual(result, ['1', '2', false]);
+    });
+    it('parses single-letter uppercase options', function () {
+      subject(fn, ['1', '-O']);
+      assert(errs.length === 0);
+      assert.deepEqual(result, ['1', undefined, true]);
+    });
+    it('does not change single-letter uppercase options to lowercase', function () {
+      subject(fn, ['1', '-o']);
+      assert(errs.length > 0);
+    });
+    it('shows kebab-case options in usage', function () {
+      subject(fn, []);
+      assert(errs.length > 0, 'no errors');
+      assert(errs[0].match(/the-option/), '/the-option/');
+      assert(errs[0].match(/the-param/), '/the-param/');
+      assert(errs[0].match(/-O/), '/-O/');
+      assert(!errs[0].match(/theParam/), '/theParam/');
+      assert(!errs[0].match(/theOption/), '/theOption/');
+      assert(!errs[0].match(/\b-o\b/), '/-o/');
     });
   });
 });

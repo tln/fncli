@@ -100,5 +100,4 @@ require('funcli')(
 ## Future work
 
 - auto-number?
-- kebabification
 - usage handling in main

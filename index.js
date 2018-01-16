@@ -108,6 +108,15 @@ function optDescFromSignature(func) {
 // Expose for testing
 module.exports.optDescFromSignature = optDescFromSignature;
 
+function kebabToCamelCase(str) {
+  return str.replace(/-([a-z])/g, ([, letter]) => letter.toUpperCase());
+}
+
+function camelToKebabCase(str) {
+  if (!str || str.length < 3) return str;
+  return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+}
+
 /**
  * Parse arguments into a decoded argument result.
  * Keys:
@@ -126,8 +135,9 @@ function decodeArgs(optDesc, argv) {
   let arg, m;
   while (args.length) {
     arg = args.shift();
-    if (m = arg.match(/^--(\w+)(?:=(.*))?/)) {
+    if (m = arg.match(/^--([\w-]+)(?:=(.*))?/)) {
       let [, optName, optVal] = m;
+      optName = kebabToCamelCase(optName);
       let {name, hasArg} = optDesc.options[optName] || {};
       if (!name) {
         result.error = "Unknown option";
@@ -234,6 +244,7 @@ function usage({optDesc, error, command}) {
   if (hasOptions) s += " [options]";
   let positionalSynopsis = '';
   for (let {name, rest, required, synopsis} of optDesc.positional) {
+    name = camelToKebabCase(name);
     if (rest) name += '...';
     if (!required) name = "[" + name + "]";
     s += " " + name;
@@ -252,8 +263,10 @@ function usage({optDesc, error, command}) {
     s += "options:\n";
     for (let [key, {name, alias, hasArg, synopsis}] of Object.entries(optDesc.options)) {
       if (key !== name) continue;
+      name = camelToKebabCase(name);
       s += '  ';
       if (alias) {
+        alias = camelToKebabCase(alias);
         if (alias.length > name.length) [alias, name] = [name, alias];
         if (alias.length > 1) alias = '-' + alias;
         s += `-${alias}, `;
