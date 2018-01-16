@@ -9,7 +9,11 @@
   },
   "keywords": [],
   "author": "tony@lownds.com",
-  "license": "ISC",
+  "license": "MIT",
+  "engines": {
+    "node": ">= 6.0.0"
+  },
+  "repository": "tln/fncli",
   "devDependencies": {
     "mocha": "^4.1.0"
   }
