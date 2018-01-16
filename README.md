@@ -1,4 +1,4 @@
-# fncli -- cli derived from function signatures
+# fncli -- cli framework using function signatures
 
 ```
 require('fncli')(
