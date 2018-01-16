@@ -1,12 +1,12 @@
 const assert = require('assert');
 
 describe('optDescFromSignature', function () {
-  var funcli;
+  var fncli;
   beforeEach(function () {
-    funcli = require('../index');
+    fncli = require('../index');
   });
   it('simple function', function () {
-    let result = funcli.optDescFromSignature((x, y)=>0);
+    let result = fncli.optDescFromSignature((x, y)=>0);
     assert.deepEqual(result, {
       synopsis: null,
       optionParamIndex: null,
@@ -15,7 +15,7 @@ describe('optDescFromSignature', function () {
     });
   });
   it('an optional arg', function () {
-    let result = funcli.optDescFromSignature((port=0)=>0);
+    let result = fncli.optDescFromSignature((port=0)=>0);
     assert.deepEqual(result, {
       synopsis: null,
       optionParamIndex: null,
@@ -24,7 +24,7 @@ describe('optDescFromSignature', function () {
     });
   });
   it('single option', function () {
-    let result = funcli.optDescFromSignature(({port})=>0);
+    let result = fncli.optDescFromSignature(({port})=>0);
     assert.deepEqual(result, {
       synopsis: null,
       optionParamIndex: 0,
@@ -33,7 +33,7 @@ describe('optDescFromSignature', function () {
     });
   });
   it('flag option', function () {
-    let result = funcli.optDescFromSignature(({verbose=false})=>0);
+    let result = fncli.optDescFromSignature(({verbose=false})=>0);
     assert.deepEqual(result, {
       synopsis: null,
       optionParamIndex: 0,
@@ -42,7 +42,7 @@ describe('optDescFromSignature', function () {
     });
   });
   it('kitchen sink', function () {
-    let result = funcli.optDescFromSignature((host, port=0, {verbose=false, module})=>0);
+    let result = fncli.optDescFromSignature((host, port=0, {verbose=false, module})=>0);
     assert.deepEqual(result, {
       synopsis: null,
       optionParamIndex: 2,
@@ -54,7 +54,7 @@ describe('optDescFromSignature', function () {
     });
   });
   it('synopsis', function () {
-    let result = funcli.optDescFromSignature(
+    let result = fncli.optDescFromSignature(
       (/* synopsis */
         host, // describe host
         port=0, // describe port
@@ -77,7 +77,7 @@ describe('optDescFromSignature', function () {
     });
   });
   it('option aliases', function () {
-    let result = funcli.optDescFromSignature(({m: module,
+    let result = fncli.optDescFromSignature(({m: module,
       v: verbose=false
     })=>0);
     assert.deepEqual(result, {
@@ -93,7 +93,7 @@ describe('optDescFromSignature', function () {
     });
   });
   it('rest param', function () {
-    let result = funcli.optDescFromSignature((...x)=>0);
+    let result = fncli.optDescFromSignature((...x)=>0);
     assert.deepEqual(result, {
       synopsis: null,
       optionParamIndex: null,
@@ -104,12 +104,12 @@ describe('optDescFromSignature', function () {
 });
 
 describe('optDescFromCommands', function () {
-  var funcli;
+  var fncli;
   beforeEach(function () {
-    funcli = require('../index');
+    fncli = require('../index');
   });
   it('simple functions', function () {
-    let result = funcli.optDescFromCommands({
+    let result = fncli.optDescFromCommands({
       a(x, y) {},
       b(host, port=0, {verbose=false, module}) {}
     });
@@ -145,9 +145,9 @@ describe('optDescFromCommands', function () {
 });
 
 describe('decodeArgs', function () {
-  var funcli, opts;
+  var fncli, opts;
   beforeEach(function () {
-    funcli = require('../index');
+    fncli = require('../index');
     opts = {
       optionParamIndex: 2,
       options: {
@@ -158,72 +158,72 @@ describe('decodeArgs', function () {
     };
   });
   it('gives error with no args', function () {
-    let result = funcli.decodeArgs(opts, []);
+    let result = fncli.decodeArgs(opts, []);
     assert.ok(result.error);
   });
   it('gives error with unknown options', function () {
-    let result = funcli.decodeArgs(opts, ['--foo']);
+    let result = fncli.decodeArgs(opts, ['--foo']);
     assert.ok(result.error);
   });
   it('parses 1 arg', function () {
-    let result = funcli.decodeArgs(opts, ['x']);
+    let result = fncli.decodeArgs(opts, ['x']);
     assert(!result.error);
     assert.deepEqual(result.apply, ['x', undefined, {}]);
     assert.deepEqual(result.values, {host: 'x'});
     assert.deepEqual(result.optionValues, {});
   });
   it('parses 2 args', function () {
-    let result = funcli.decodeArgs(opts, ['x', 'y']);
+    let result = fncli.decodeArgs(opts, ['x', 'y']);
     assert(!result.error);
     assert.deepEqual(result.apply, ['x', 'y', {}]);
     assert.deepEqual(result.values, {host: 'x', port: 'y'});
     assert.deepEqual(result.optionValues, {});
   });
   it('gives error with 3 args', function () {
-    let result = funcli.decodeArgs(opts, ['x', 'y', 'z']);
+    let result = fncli.decodeArgs(opts, ['x', 'y', 'z']);
     assert.ok(result.error);
   });
   it('parses an option', function () {
-    let result = funcli.decodeArgs(opts, ['--verbose', 'x']);
+    let result = fncli.decodeArgs(opts, ['--verbose', 'x']);
     assert(!result.error);
     assert.deepEqual(result.apply, ['x', undefined, {verbose: true}]);
     assert.deepEqual(result.values, {host: 'x', verbose: true});
     assert.deepEqual(result.optionValues, {verbose: true});
   });
   it('parses an option after args', function () {
-    let result = funcli.decodeArgs(opts, ['x', '--verbose']);
+    let result = fncli.decodeArgs(opts, ['x', '--verbose']);
     assert(!result.error);
     assert.deepEqual(result.apply, ['x', undefined, {verbose: true}]);
     assert.deepEqual(result.values, {host: 'x', verbose: true});
     assert.deepEqual(result.optionValues, {verbose: true});
   });
   it('parses an option followed by value', function () {
-    let result = funcli.decodeArgs(opts, ['--module', 'funcli', 'x']);
+    let result = fncli.decodeArgs(opts, ['--module', 'fncli', 'x']);
     assert(!result.error);
-    assert.deepEqual(result.apply, ['x', undefined, {module: 'funcli'}]);
-    assert.deepEqual(result.values, {host: 'x', module: 'funcli'});
-    assert.deepEqual(result.optionValues, {module: 'funcli'});
+    assert.deepEqual(result.apply, ['x', undefined, {module: 'fncli'}]);
+    assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
+    assert.deepEqual(result.optionValues, {module: 'fncli'});
   });
   it('parses an option=value', function () {
-    let result = funcli.decodeArgs(opts, ['--module=funcli', 'x']);
+    let result = fncli.decodeArgs(opts, ['--module=fncli', 'x']);
     assert(!result.error);
-    assert.deepEqual(result.apply, ['x', undefined, {module: 'funcli'}]);
-    assert.deepEqual(result.values, {host: 'x', module: 'funcli'});
-    assert.deepEqual(result.optionValues, {module: 'funcli'});
+    assert.deepEqual(result.apply, ['x', undefined, {module: 'fncli'}]);
+    assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
+    assert.deepEqual(result.optionValues, {module: 'fncli'});
   });
   it('parses an option followed by value after args', function () {
-    let result = funcli.decodeArgs(opts, ['x', '--module', 'funcli']);
+    let result = fncli.decodeArgs(opts, ['x', '--module', 'fncli']);
     assert(!result.error);
-    assert.deepEqual(result.apply, ['x', undefined, {module: 'funcli'}]);
-    assert.deepEqual(result.values, {host: 'x', module: 'funcli'});
-    assert.deepEqual(result.optionValues, {module: 'funcli'});
+    assert.deepEqual(result.apply, ['x', undefined, {module: 'fncli'}]);
+    assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
+    assert.deepEqual(result.optionValues, {module: 'fncli'});
   });
   it('parses an option=value after args', function () {
-    let result = funcli.decodeArgs(opts, ['x', '--module=funcli']);
+    let result = fncli.decodeArgs(opts, ['x', '--module=fncli']);
     assert(!result.error);
-    assert.deepEqual(result.apply, ['x', undefined, {module: 'funcli'}]);
-    assert.deepEqual(result.values, {host: 'x', module: 'funcli'});
-    assert.deepEqual(result.optionValues, {module: 'funcli'});
+    assert.deepEqual(result.apply, ['x', undefined, {module: 'fncli'}]);
+    assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
+    assert.deepEqual(result.optionValues, {module: 'fncli'});
   });
   describe('short options', function () {
     beforeEach(function () {
@@ -237,49 +237,49 @@ describe('decodeArgs', function () {
       };
     });
     it('parses an option', function () {
-      let result = funcli.decodeArgs(opts, ['-v', 'x']);
+      let result = fncli.decodeArgs(opts, ['-v', 'x']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['x', undefined, {v: true}]);
       assert.deepEqual(result.values, {host: 'x', v: true});
       assert.deepEqual(result.optionValues, {v: true});
     });
     it('parses an option after args', function () {
-      let result = funcli.decodeArgs(opts, ['x', '-v']);
+      let result = fncli.decodeArgs(opts, ['x', '-v']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['x', undefined, {v: true}]);
       assert.deepEqual(result.values, {host: 'x', v: true});
       assert.deepEqual(result.optionValues, {v: true});
     });
     it('parses an option followed by value', function () {
-      let result = funcli.decodeArgs(opts, ['-m', 'funcli', 'x']);
+      let result = fncli.decodeArgs(opts, ['-m', 'fncli', 'x']);
       assert(!result.error, result.error);
-      assert.deepEqual(result.apply, ['x', undefined, {m: 'funcli'}]);
-      assert.deepEqual(result.values, {host: 'x', m: 'funcli'});
-      assert.deepEqual(result.optionValues, {m: 'funcli'});
+      assert.deepEqual(result.apply, ['x', undefined, {m: 'fncli'}]);
+      assert.deepEqual(result.values, {host: 'x', m: 'fncli'});
+      assert.deepEqual(result.optionValues, {m: 'fncli'});
     });
     it('parses an option=value', function () {
-      let result = funcli.decodeArgs(opts, ['-mfuncli', 'x']);
+      let result = fncli.decodeArgs(opts, ['-mfncli', 'x']);
       assert(!result.error);
-      assert.deepEqual(result.apply, ['x', undefined, {m: 'funcli'}]);
-      assert.deepEqual(result.values, {host: 'x', m: 'funcli'});
-      assert.deepEqual(result.optionValues, {m: 'funcli'});
+      assert.deepEqual(result.apply, ['x', undefined, {m: 'fncli'}]);
+      assert.deepEqual(result.values, {host: 'x', m: 'fncli'});
+      assert.deepEqual(result.optionValues, {m: 'fncli'});
     });
     it('parses combined options followed by value', function () {
-      let result = funcli.decodeArgs(opts, ['x', '-vm', 'funcli']);
+      let result = fncli.decodeArgs(opts, ['x', '-vm', 'fncli']);
       assert(!result.error);
-      assert.deepEqual(result.apply, ['x', undefined, {v: true, m: 'funcli'}]);
-      assert.deepEqual(result.values, {host: 'x', v: true, m: 'funcli'});
-      assert.deepEqual(result.optionValues, {v: true, m: 'funcli'});
+      assert.deepEqual(result.apply, ['x', undefined, {v: true, m: 'fncli'}]);
+      assert.deepEqual(result.values, {host: 'x', v: true, m: 'fncli'});
+      assert.deepEqual(result.optionValues, {v: true, m: 'fncli'});
     });
     it('parses combined options and value', function () {
-      let result = funcli.decodeArgs(opts, ['x', '-vmfuncli']);
+      let result = fncli.decodeArgs(opts, ['x', '-vmfncli']);
       assert(!result.error);
-      assert.deepEqual(result.apply, ['x', undefined, {v: true, m: 'funcli'}]);
-      assert.deepEqual(result.values, {host: 'x', v: true, m: 'funcli'});
-      assert.deepEqual(result.optionValues, {v: true, m: 'funcli'});
+      assert.deepEqual(result.apply, ['x', undefined, {v: true, m: 'fncli'}]);
+      assert.deepEqual(result.values, {host: 'x', v: true, m: 'fncli'});
+      assert.deepEqual(result.optionValues, {v: true, m: 'fncli'});
     });
     it('gives error with unknown options', function () {
-      let result = funcli.decodeArgs(opts, ['-vf']);
+      let result = fncli.decodeArgs(opts, ['-vf']);
       assert.ok(result.error);
     });
   });
@@ -316,11 +316,11 @@ describe('decodeArgs', function () {
       };
     });
     it('parses a command', function () {
-      let result = funcli.decodeArgs(opts, ['b', 'x', '--module=funcli']);
+      let result = fncli.decodeArgs(opts, ['b', 'x', '--module=fncli']);
       assert(!result.error);
-      assert.deepEqual(result.apply, ['x', undefined, {module: 'funcli'}]);
-      assert.deepEqual(result.values, {host: 'x', module: 'funcli'});
-      assert.deepEqual(result.optionValues, {module: 'funcli'});
+      assert.deepEqual(result.apply, ['x', undefined, {module: 'fncli'}]);
+      assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
+      assert.deepEqual(result.optionValues, {module: 'fncli'});
     });
   });
   describe('rest params', function () {
@@ -334,17 +334,17 @@ describe('decodeArgs', function () {
       };
     });
     it('parses extra args', function () {
-      let result = funcli.decodeArgs(opts, ['1']);
+      let result = fncli.decodeArgs(opts, ['1']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['1']);
     });
     it('parses extra args', function () {
-      let result = funcli.decodeArgs(opts, ['1', '2']);
+      let result = fncli.decodeArgs(opts, ['1', '2']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['1', '2']);
     });
     it('parses extra args', function () {
-      let result = funcli.decodeArgs(opts, ['1', '2', '3']);
+      let result = fncli.decodeArgs(opts, ['1', '2', '3']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['1', '2', '3']);
     });
@@ -362,27 +362,27 @@ describe('decodeArgs', function () {
       };
     });
     it('parses camelCase args', function () {
-      let result = funcli.decodeArgs(opts, ['hello', '--theOption=1']);
+      let result = fncli.decodeArgs(opts, ['hello', '--theOption=1']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['hello', {theOption: '1'}]);
     });
     it('parses kebab args', function () {
-      let result = funcli.decodeArgs(opts, ['hello', '--the-option=1']);
+      let result = fncli.decodeArgs(opts, ['hello', '--the-option=1']);
       assert(!result.error);
       assert.deepEqual(result.apply, ['hello', {theOption: '1'}]);
     });
   });
 });
 
-describe('funcli', function () {
+describe('fncli', function () {
   let errs = [], result = null;
   function subject(fn, args) {
-    let funcli = require('../index');
+    let fncli = require('../index');
     let orig = console.error;
     errs = []; result = null;
     console.error = (e) => errs.push(e);
     try {
-      funcli(fn, ['node', 'script.js'].concat(args));
+      fncli(fn, ['node', 'script.js'].concat(args));
     } finally {
       console.error = orig;
     }

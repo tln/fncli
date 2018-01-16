@@ -1,7 +1,7 @@
-# funcli -- small, fun cli framework
+# fncli -- cli derived from function signatures
 
 ```
-require('funcli')(
+require('fncli')(
   // Pass a main function. Parameters become arguments or options
   function (name, {greeting="Hello", shout=false}) {
 
@@ -20,7 +20,7 @@ options:
 ## Sub-command style
 
 ```
-require('funcli')({
+require('fncli')({
   // Pass an object with functions. Function names become
   // subcommands.
   hello(name, {greeting="Hello", shout=false}) {
@@ -37,7 +37,7 @@ require('funcli')({
 Descriptions of commands, arguments and options can be accomplished using comments.
 
 ```
-require('funcli')(
+require('fncli')(
   function (// Description of command
     name, // Description of name
     {
@@ -70,7 +70,7 @@ Single-letter options become short options. Aliases use ES6 syntax for assigning
 In this example, the `-s` option and `--shout` are aliases.
 
 ```
-require('funcli')(
+require('fncli')(
   function (// Description of command
     name, // Description of name
     {
@@ -87,7 +87,7 @@ require('funcli')(
 Rest parameters allow zero or more arguments to be passed.
 
 ```
-require('funcli')(
+require('fncli')(
   function (
     ...names,
     ) {

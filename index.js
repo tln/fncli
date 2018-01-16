@@ -1,5 +1,5 @@
 /**
- * funcli - function-based cli scaffold.
+ * fncli - function-based cli scaffold.
  * Parses argv based on the given function signature, and
  * then calls the function.
  */
