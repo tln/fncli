@@ -1,7 +1,9 @@
 require('../index')({
-  // Comments within the parameters can be used as short descriptions
-  // Note that you can't describbe the overall command this way, because  
-  // only comments within parameter isn't present in the "toString" output.
+  // Comments within the parameters will be used as short descriptions.
+  // Comment before the first parameter will be used as the synopsys.
+  //
+  // Note that comments before the function can't be used by fncli becase 
+  // Javascript does not include them in "toString" output.
 
   hello( // Greet the day.
     name, // Subject of greeting, eg "world"
