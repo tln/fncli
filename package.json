@@ -16,6 +16,6 @@
   },
   "repository": "tln/fncli",
   "devDependencies": {
-    "mocha": "^4.1.0"
+    "mocha": "^7.1.0"
   }
 }
