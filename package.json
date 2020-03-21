@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "cli framework using function signatures",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "test": "mocha -R spec test/*-spec.js",
     "test:watch": "npm test -- --watch"
