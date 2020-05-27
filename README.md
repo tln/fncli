@@ -96,6 +96,22 @@ require('fncli')(
 );
 ```
 
+## Usage errors
+
+Throwing "error:" messages will show usage and the error.
+
+```
+require('fncli')(
+  function (
+    ...names, // At least one
+    ) {
+      if (names.length < 1) {
+        throw "error: pass at least one name";
+      }
+  }
+);
+```
+
 
 ## Future work
 

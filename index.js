@@ -223,11 +223,19 @@ module.exports.decodeArgs = decodeArgs;
  * @param {*} args
  * @param {*} func
  */
-function applyFunc(decoded, func, arg0) {
+async function applyFunc(decoded, func, arg0) {
   if (decoded.error) {
     console.error(usage(decoded));
   } else {
-    func.apply(null, decoded.apply);
+    try {
+      await func.apply(null, decoded.apply);
+    } catch(e) {
+      // Handle usage errors, re-throw the rest
+      if (e.toString().startsWith('error:')) {
+        console.error(e);
+        console.error(usage(decoded));
+      }
+    }
   }
 }
 
@@ -241,7 +249,9 @@ const {basename} = require('path');
 function usage({optDesc, error, command}) {
   let {arg0} = optDesc;
   console.assert(arg0);
-  let s = `error: ${error}\nusage: ${basename(arg0)}`;
+  let s = '';
+  if (error) s += `error: ${error}\n`;
+  s += `usage: ${basename(arg0)}`;
   if (command) {
     optDesc = command.optDesc;
     s += " " + command.name;
