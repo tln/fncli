@@ -54,8 +54,15 @@ function optDescFromCommands(handlers) {
 module.exports.optDescFromCommands = optDescFromCommands;
 
 function paramString(func) {
-  // extract param string
-  let [, params] = /\(\s*([^)]*)/.exec(func.toString());
+  // extract param string from function, eg function(x) {..} => 'x'
+  // Allows balanced parens.
+  const s = func.toString(), start = s.indexOf('(');
+  console.assert(start > -1);
+  let d = 1, i = start+1;
+  for (; d > 0 && i < s.length; i++) {
+    d += {'(': 1, ')': -1}[s[i]] || 0;
+  }
+  const params = s.slice(start+1, i-1).trim();
   return extractComment(params);
 }
 
@@ -74,8 +81,7 @@ function extractComment(params) {
  * @param {*} func
  */
 function optDescFromSignature(func) {
-  // Find arguments from function source code. This requires parens
-  // and breaks if any optional values use parens, or on getters, etc.
+  // Find arguments from function source code (ie, the functions string representation)
   let [synopsis, params] = paramString(func);
   let re = /({)|(}\s*)|(\.\.\.)?(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}/]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
 
