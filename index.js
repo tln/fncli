@@ -77,7 +77,7 @@ function optDescFromSignature(func) {
   // Find arguments from function source code. This requires parens
   // and breaks if any optional values use parens, or on getters, etc.
   let [synopsis, params] = paramString(func);
-  let re = /({)|(}\s*)|(\.\.\.)?(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
+  let re = /({)|(}\s*)|(\.\.\.)?(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}/]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
 
   let result = {synopsis, optionParamIndex: null, options: {}, positional: []};
   while (m = re.exec(params)) {

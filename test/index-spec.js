@@ -53,7 +53,7 @@ describe('optDescFromSignature', function () {
       positional: [{name: 'host', rest: false, required: true, synopsis: null}, {name: 'port', rest: false, required: false, synopsis: null}]
     });
   });
-  it('synopsis', function () {
+  it.only('synopsis', function () {
     let result = fncli.optDescFromSignature(
       (/* synopsis */
         host, // describe host
@@ -74,6 +74,25 @@ describe('optDescFromSignature', function () {
         {name: 'host', rest: false, required: true, synopsis: 'describe host'},
         {name: 'port', rest: false, required: false, synopsis: 'describe port'}
       ]
+    });
+  });
+  it.only('synopsis2', function () {
+    let result = fncli.optDescFromSignature(
+      ({
+          n=null // comic number
+       }
+       )=>0);
+    assert.deepEqual(result, {
+      optionParamIndex: 0,
+      options: {
+        n: {
+          hasArg: true,
+          name: 'n',
+          synopsis: 'comic number'
+        }
+      },
+      positional: [],
+      synopsis: null
     });
   });
   it('option aliases', function () {
