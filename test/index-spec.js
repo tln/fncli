@@ -76,6 +76,25 @@ describe('optDescFromSignature', function () {
       ]
     });
   });
+  it('synopsis on last option', function () {
+    let result = fncli.optDescFromSignature(
+      ({
+          n=null // A number
+       }
+       )=>0);
+    assert.deepEqual(result, {
+      optionParamIndex: 0,
+      options: {
+        n: {
+          hasArg: true,
+          name: 'n',
+          synopsis: 'A number'
+        }
+      },
+      positional: [],
+      synopsis: null
+    });
+  });
   it('option aliases', function () {
     let result = fncli.optDescFromSignature(({m: module,
       v: verbose=false
