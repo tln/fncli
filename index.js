@@ -3,33 +3,32 @@
  * Parses argv based on the given function signature, and
  * then calls the function.
  */
-module.exports = function (func, argv=process.argv) {
+module.exports = function (commands, {argv=process.argv, ...config}) {
+  config = Object.assign({}, DEFAULT_OPTS, config);
   try {
-    if (typeof func === 'function') {
-      parseAndRunFunc(argv, func);
-    } else {
-      // sub-command style
-      parseAndRunSubCommands(argv, func);
-    }
+    parseAndRun(argv, commands, config);
   } catch(e) {
     console.error(e);
   }
 }
 
-function parseAndRunSubCommands(argv, commands) {
-  let [, arg0, ...args] = argv;
-  let opts = optDescFromCommands(commands);
-  opts.arg0 = arg0;
-  let decoded = decodeArgs(opts, args);
-  let func = decoded.command ? commands[decoded.command.name] : null;
-  applyFunc(decoded, func, arg0);
-}
+const DEFAULT_OPTS = {
+  help: false
+};
 
-function parseAndRunFunc(argv, func) {
-  let [, arg0, ...args] = argv;
-  let opts = optDescFromSignature(func);
+function parseAndRun(argv, commands, config) {
+  let [, arg0, ...args] = argv, opts, func;
+  if (typeof commands === 'function') {
+    func = commands;
+    opts = optDescFromSignature(func);
+  } else {
+    opts = optDescFromCommands(commands);
+  }
   opts.arg0 = arg0;
   let decoded = decodeArgs(opts, args);
+  if (!func && decoded.command) {
+    func = commands[decoded.command.name];
+  }
   applyFunc(decoded, func);
 }
 
@@ -223,7 +222,7 @@ module.exports.decodeArgs = decodeArgs;
  * @param {*} args
  * @param {*} func
  */
-async function applyFunc(decoded, func, arg0) {
+async function applyFunc(decoded, func) {
   if (decoded.error) {
     console.error(usage(decoded));
   } else {
@@ -234,6 +233,8 @@ async function applyFunc(decoded, func, arg0) {
       if (e.toString().startsWith('error:')) {
         console.error(e);
         console.error(usage(decoded));
+      } else {
+        throw e;
       }
     }
   }

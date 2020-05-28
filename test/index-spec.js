@@ -401,7 +401,7 @@ describe('fncli', function () {
     errs = []; result = null;
     console.error = (e) => errs.push(e);
     try {
-      fncli(fn, ['node', 'script.js'].concat(args));
+      fncli(fn, {argv: ['node', 'script.js'].concat(args)});
     } finally {
       console.error = orig;
     }
@@ -433,7 +433,7 @@ describe('fncli', function () {
     it('with all args', function () {
       subject(fn, ['--flag', '--opt=1', 'x', 'y']);
       assert(errs.length === 0);
-      assert.deepEqual(result, {x:'x', y: 'y', flag: true, opt: '1', z: []});
+      assert.deepEqual(result, {x: 'x', y: 'y', flag: true, opt: '1', z: []});
     });
 
     it('with additional args', function () {
