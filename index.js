@@ -36,6 +36,44 @@ function parseAndRun(argv, commands, config) {
  * Return an opts data structure that describes the options and arguments.
  * @param {*} func
  */
+function optDescFromSignature(func) {
+  // Find arguments from function source code (ie, the functions string representation)
+  let [synopsis, params] = paramString(func);
+  let re = /({)|(}\s*)|(\.\.\.)?(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}/]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
+
+  let result = {synopsis, optionParamIndex: null, options: {}, positional: []};
+  while (m = re.exec(params)) {
+    let [, startOptions, endOptions, dotdotdot, name, alias, defaultExpr, synopsis, synopsis2] = m;
+    synopsis = synopsis || synopsis2 || null;
+    if (synopsis) synopsis = synopsis.trim();
+    if (defaultExpr) defaultExpr = defaultExpr.trim();
+    if (startOptions) {
+      if (result.optionParamIndex !== null) throw "Can't nest/repeat options";
+      inOptions = true;
+      result.optionParamIndex = result.positional.length;
+    } else if (endOptions) {
+      console.assert(inOptions);
+      inOptions = false;
+    } else if (inOptions) {
+      result.options[name] = {name, hasArg: defaultExpr !== 'false', synopsis};
+      if (alias) {
+        result.options[name].alias = alias;
+        result.options[alias] = result.options[name];
+      }
+    } else {
+      let rest = !!dotdotdot;
+      result.positional.push({name, required: !defaultExpr && !rest, synopsis, rest});
+    }
+  }
+  return result;
+}
+// Expose for testing
+module.exports.optDescFromSignature = optDescFromSignature;
+
+/**
+ * Return an opts data structure that describes the options and arguments.
+ * @param {*} func
+ */
 function optDescFromCommands(handlers) {
   let commands = {};
   for (let name in handlers) {
@@ -75,43 +113,6 @@ function extractComment(params) {
  return [comment, params]
 }
 
-/**
- * Return an opts data structure that describes the options and arguments.
- * @param {*} func
- */
-function optDescFromSignature(func) {
-  // Find arguments from function source code (ie, the functions string representation)
-  let [synopsis, params] = paramString(func);
-  let re = /({)|(}\s*)|(\.\.\.)?(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}/]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
-
-  let result = {synopsis, optionParamIndex: null, options: {}, positional: []};
-  while (m = re.exec(params)) {
-    let [, startOptions, endOptions, dotdotdot, name, alias, defaultExpr, synopsis, synopsis2] = m;
-    synopsis = synopsis || synopsis2 || null;
-    if (synopsis) synopsis = synopsis.trim();
-    if (defaultExpr) defaultExpr = defaultExpr.trim();
-    if (startOptions) {
-      if (result.optionParamIndex !== null) throw "Can't nest/repeat options";
-      inOptions = true;
-      result.optionParamIndex = result.positional.length;
-    } else if (endOptions) {
-      console.assert(inOptions);
-      inOptions = false;
-    } else if (inOptions) {
-      result.options[name] = {name, hasArg: defaultExpr !== 'false', synopsis};
-      if (alias) {
-        result.options[name].alias = alias;
-        result.options[alias] = result.options[name];
-      }
-    } else {
-      let rest = !!dotdotdot;
-      result.positional.push({name, required: !defaultExpr && !rest, synopsis, rest});
-    }
-  }
-  return result;
-}
-// Expose for testing
-module.exports.optDescFromSignature = optDescFromSignature;
 
 function kebabToCamelCase(str) {
   return str.replace(/-([a-z])/g, ([, letter]) => letter.toUpperCase());
@@ -237,12 +238,6 @@ async function applyFunc(decoded, func) {
         throw e;
       }
     }
-  }
-}
-
-function printIfError(decoded) {
-  if (decoded.error) {
-    console.error(`error: ${decoded.error}\n${usage(decoded.optDesc)}`);
   }
 }
 
