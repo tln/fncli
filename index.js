@@ -24,7 +24,13 @@ function parseAndRun(argv, commands, config) {
   const [, arg0, ...args] = argv;
   const opts = parseSignature(commands);
   opts.arg0 = arg0;
+  if (config.help) {
+    opts.options.help = {name: 'help', hasArg: false, synopsis: 'Prints this message'};
+  }
   const decoded = decodeArgs(opts, args);
+  if (config.help && decoded.optionValues.help) {
+    decoded.error = true;
+  }
   if (decoded.error) {
     console.error(usage(decoded));
   } else {

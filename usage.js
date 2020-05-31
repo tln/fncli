@@ -1,13 +1,18 @@
 const {basename} = require('path');
 
 /**
- * Formats a usage string from parsed options
+ * Formats a usage string from parsed options.
  */
 module.exports = function usage({optDesc, error, command}) {
   let {arg0} = optDesc;
   console.assert(arg0);
   let s = '';
-  if (error) s += `error: ${error}\n`;
+  if (error === true) {
+    // parsing needed to show usage without an error
+  } else if (error) {
+    if (!error.startsWith('error:')) s += 'error: ';
+    s += error + '\n';
+  }
   s += `usage: ${basename(arg0)}`;
   if (command) {
     optDesc = command.optDesc;

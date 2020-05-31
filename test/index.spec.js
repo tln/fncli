@@ -2,13 +2,13 @@ const assert = require('assert');
 
 describe('fncli', function () {
   let errs = [], result = null;
-  function subject(fn, args) {
+  function subject(fn, args, config={}) {
     let fncli = require('../index');
     let orig = console.error;
     errs = []; result = null;
     console.error = (e) => errs.push(e);
     try {
-      fncli(fn, {argv: ['node', 'script.js'].concat(args)});
+      fncli(fn, {...config, argv: ['node', 'script.js'].concat(args)});
     } finally {
       console.error = orig;
     }
@@ -135,6 +135,30 @@ describe('fncli', function () {
       assert(!errs[0].match(/theParam/), '/theParam/');
       assert(!errs[0].match(/theOption/), '/theOption/');
       assert(!errs[0].match(/\b-o\b/), '/-o/');
+    });
+  });
+  describe('adds a help option', function () {
+    it('adds a help option when usage error', function () {
+      // usage error (y not passed)
+      let x = 0, fn = (y) => x += +y;
+      subject(fn, [], {help: true});
+      assert(/--help/.test(errs.join('\n')));
+    });
+    it('shows help when --help is passed', function () {
+      let x = 0, fn = (y='1') => x += +y;
+      subject(fn, ['--help'], {help: true});
+      assert(/--help/.test(errs.join('\n')));
+    });
+    it('does not chide user --help is passed', function () {
+      // ie, the usage starts with usage:
+      let x = 0, fn = (y) => x += +y;
+      subject(fn, ['--help'], {help: true});
+      assert(errs.join('\n').startsWith('usage: '), errs);
+    });
+    it('shows the subcommand options when appropriate', function () {
+      let commands = {subcommand({x=true}) {}, b() {}};
+      subject(commands, ['--help', 'subcommand'], {help: true});
+      assert(errs.join('\n').match(/^usage: .* subcommand/), errs);
     });
   });
 });
