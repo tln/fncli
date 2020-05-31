@@ -17,17 +17,17 @@ describe('fncli', function () {
   it('calls the function', function () {
     let x = 0, fn = () => x++
     subject(fn, []);
-    console.assert(x === 1);
+    assert(x === 1);
   });
   it('calls the function with args', function () {
     let x = 0, fn = (y) => x += +y;
     subject(fn, ['2']);
-    console.assert(x === 2);
+    assert(x === 2);
   });
   it('prints an error when arg is not passed', function () {
     let x = 0, fn = (y) => x += +y;
     subject(fn, []);
-    console.assert(errs.length);
+    assert(errs.length);
   });
   describe('parses arguments correctly', function () {
     let fn = (x, y=0, {flag=false, opt}, ...z) => result = {x, y, flag, opt, z};
