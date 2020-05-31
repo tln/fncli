@@ -5,7 +5,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "mocha -R spec test/*-spec.js",
+    "test": "mocha -R spec test/*.js",
     "test:watch": "npm test -- --watch"
   },
   "keywords": [],
