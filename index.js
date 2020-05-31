@@ -25,8 +25,12 @@ function parseAndRun(argv, commands, config) {
   const opts = parseSignature(commands);
   opts.arg0 = arg0;
   const decoded = decodeArgs(opts, args);
-  const func = getHandler(commands, decoded.command);
-  applyFunc(decoded, func);
+  if (decoded.error) {
+    console.error(usage(decoded));
+  } else {
+    const func = getHandler(commands, decoded.command);
+    applyFunc(decoded, func);
+  }
 }
 
 function getHandler(commands, selectedCommand) {
@@ -46,19 +50,14 @@ function getHandler(commands, selectedCommand) {
  * @param {*} func
  */
 async function applyFunc(decoded, func) {
-  if (decoded.error) {
-    console.error(usage(decoded));
-  } else {
-    try {
-      await func.apply(null, decoded.apply);
-    } catch(e) {
-      // Handle usage errors, re-throw the rest
-      if (e.toString().startsWith('error:')) {
-        console.error(e);
-        console.error(usage(decoded));
-      } else {
-        throw e;
-      }
+  try {
+    await func.apply(null, decoded.apply);
+  } catch(e) {
+    // Handle usage errors, re-throw the rest
+    if (e.toString().startsWith('error:')) {
+      console.error(usage({...decoded, error: e.toString()}));
+    } else {
+      throw e;
     }
   }
 }
