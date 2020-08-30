@@ -81,6 +81,13 @@ describe('decodeArgs', function () {
     assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
     assert.deepEqual(result.optionValues, {module: 'fncli'});
   });
+  it('does not treat -- as an arg', function () {
+    let result = decodeArgs(opts, ['--module=fncli', '--', '-x']);
+    assert(!result.error);
+    assert.deepEqual(result.apply, ['-x', undefined, {module: 'fncli'}]);
+    assert.deepEqual(result.values, {host: '-x', module: 'fncli'});
+    assert.deepEqual(result.optionValues, {module: 'fncli'});
+  });
   describe('short options', function () {
     beforeEach(function () {
       opts = {

@@ -14,10 +14,14 @@
 module.exports = function decodeArgs(optDesc, argv) {
   let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null};
   let args = argv.concat(), pos = optDesc.positional.concat();
-  let arg, m;
+  let arg, m, allowOptions = true;
   while (args.length) {
     arg = args.shift();
-    if (m = arg.match(/^--([\w-]+)(?:=(.*))?/)) {
+    if (arg === '--' && allowOptions) {
+      allowOptions = false;
+      continue;
+    }
+    if (allowOptions && (m = arg.match(/^--([\w-]+)(?:=(.*))?/))) {
       let [, optName, optVal] = m;
       optName = kebabToCamelCase(optName);
       let {name, hasArg} = optDesc.options[optName] || {};
@@ -32,7 +36,7 @@ module.exports = function decodeArgs(optDesc, argv) {
       }
       result.optionValues[name] = optVal;
       result.values[name] = optVal;
-    } else if (arg.match(/^-/)) {
+    } else if (allowOptions && arg.match(/^-/)) {
       // Process short args
       arg = arg.substring(1);
       do {
