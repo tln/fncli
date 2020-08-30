@@ -1,5 +1,4 @@
 const assert = require('assert');
-
 describe('fncli', function () {
   let errs = [], result = null;
   function subject(fn, args, config={}) {
@@ -161,4 +160,15 @@ describe('fncli', function () {
       assert(errs.join('\n').match(/^usage: .* subcommand/), errs);
     });
   });
+
+  describe('processes process.argv', function () {
+    it('runs the command successfully', function () {
+      let fncli = require('../index');
+      process.argv = ['node', 'script.js', 'x'];
+      let result;
+      fncli(x => result = x);
+      assert(result === 'x');
+    });
+  });
+  
 });

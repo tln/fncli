@@ -11,7 +11,7 @@ const usage = require('./usage');
  * Parses argv based on the given function signature, and
  * then calls the function.
  */
-module.exports = function (commands, {argv=process.argv, ...config}) {
+module.exports = function (commands, {argv=process.argv, ...config}={}) {
   config = Object.assign({}, DEFAULT_OPTS, config);
   try {
     parseAndRun(argv, commands, config);
