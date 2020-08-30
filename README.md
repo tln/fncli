@@ -32,6 +32,39 @@ require('fncli')({
 });
 ```
 
+## Aliases, short options
+
+Single-letter options become short options. Aliases use ES6 syntax for assigning to new variable names.
+
+In this example, the `-s` option and `--shout` are aliases.
+
+```
+require('fncli')(
+  function (// Description of command
+    name, // Description of name
+    {
+      greeting="Hello", // Description of greeting
+      s: shout=false
+    }) {
+      // Use `shout` in here
+  }
+);
+```
+
+## Repeating parameters
+
+Rest parameters allow zero or more arguments to be passed.
+
+```
+require('fncli')(
+  function (
+    ...names,
+    ) {
+
+  }
+);
+```
+
 ## Including descriptions
 
 Descriptions of commands, arguments and options can be accomplished using comments.
@@ -64,38 +97,6 @@ options:
   --shout=<value>
 ```
 
-## Aliases, short options
-
-Single-letter options become short options. Aliases use ES6 syntax for assigning to new variable names.
-In this example, the `-s` option and `--shout` are aliases.
-
-```
-require('fncli')(
-  function (// Description of command
-    name, // Description of name
-    {
-      greeting="Hello", // Description of greeting
-      s: shout=false
-    }) {
-      // Use `shout` in here
-  }
-);
-```
-
-## Repeating parameters
-
-Rest parameters allow zero or more arguments to be passed.
-
-```
-require('fncli')(
-  function (
-    ...names,
-    ) {
-
-  }
-);
-```
-
 ## Usage errors
 
 Throwing "error:" messages will show usage and the error.
@@ -105,15 +106,25 @@ require('fncli')(
   function (
     ...names, // At least one
     ) {
-      if (names.length < 1) {
-        throw "error: pass at least one name";
-      }
+    if (names.length < 1) {
+      throw "error: pass at least one name";
+    }
   }
 );
 ```
 
+## Config argument
 
-## Future work
+The `fncli` function accepts an object as an optional second parameter, with:
 
-- auto-number?
-- usage handling in main
+- `argv` to process that instead of `process.argv`.
+- `help: true` to add a `--help` option that prints the usage.
+
+NB: `help` is likely to default to true in the future.
+
+## Argument handing
+
+An argument of -- is skipped, and following arguments are not treated as options.
+
+Until -- is seen, options are allowed after arguments. Eg, passing `foo bar -x` will set an `x` option to `true`, or be an error if there is no `-x` option.
+
