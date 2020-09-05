@@ -145,6 +145,10 @@ describe('decodeArgs', function () {
       let result = decodeArgs(opts, ['-vf']);
       assert.ok(result.error);
     });
+    it('does not treat "-" as an option', function () {
+      let result = decodeArgs(opts, ['-']);
+      assert(!result.error);
+    });
   });
   describe('using commands', function () {
     beforeEach(function () {
@@ -211,7 +215,41 @@ describe('decodeArgs', function () {
       assert(!result.error);
       assert.deepEqual(result.apply, ['1', '2', '3']);
     });
+    it('parses extra args', function () {
+      let result = decodeArgs(opts, ['1', '2', '3']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['1', '2', '3']);
+    });
   })
+  describe('rest params with options', function () {
+    beforeEach(function () {
+      opts = {
+        optionParamIndex: 0,
+        options: {
+          v: {name: 'v', hasArg: false},
+          m: {name: 'm', hasArg: true},
+        },
+        positional: [
+          {name: 'x', rest: false, required: true, synopsis: null},
+          {name: 'y', rest: true, required: false, synopsis: null}]
+        };
+    });
+    it('parses extra args', function () {
+      let result = decodeArgs(opts, ['1', '2', '3']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, [{}, '1', '2', '3']);
+    });
+    it('parses extra args and options', function () {
+      let result = decodeArgs(opts, ['-v', '1', '2', '3']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, [{v: true}, '1', '2', '3']);
+    });
+    it('parses extra args with options at end', function () {
+      let result = decodeArgs(opts, ['1', '2', '-', '-v']);
+      assert(!result.error, result.error);
+      assert.deepEqual(result.apply, [{v: true}, '1', '2', '-']);
+    });
+  });
   describe('camelCase params', function () {
     beforeEach(function () {
       opts = {

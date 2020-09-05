@@ -14,7 +14,7 @@
 module.exports = function decodeArgs(optDesc, argv) {
   let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null};
   let args = argv.concat(), pos = optDesc.positional.concat();
-  let arg, m, ix = 0, allowOptions = true;
+  let arg, m, ix = 0, allowOptions = true, inRest = null;
   while (ix < args.length) {
     arg = args[ix++];
     if (arg === '--' && allowOptions) {
@@ -36,7 +36,7 @@ module.exports = function decodeArgs(optDesc, argv) {
       }
       result.optionValues[name] = optVal;
       result.values[name] = optVal;
-    } else if (allowOptions && arg.match(/^-/)) {
+    } else if (allowOptions && arg.match(/^-./)) {
       // Process short args
       arg = arg.substring(1);
       do {
@@ -57,6 +57,18 @@ module.exports = function decodeArgs(optDesc, argv) {
         result.optionValues[name] = optVal;
         result.values[name] = optVal;
       } while (arg);
+    } else if (inRest) {
+      // Process as many of the rest args as we can
+      const start = ix - 1;
+      if (allowOptions) {
+        // Advance ix to first option-like arg
+        while (ix < args.length && !(args[ix].length >= 2 && args[ix][0] === '-')) ix++;
+      } else {
+        ix = args.length;
+      }
+      const restArgs = args.slice(start, ix);
+      result.apply = result.apply.concat(restArgs);
+      result.values[inRest] = result.values[inRest].concat(restArgs);
     } else {
       let {name, rest} = pos.shift() || {};
       if (!name) result.error = "Too many arguments";
@@ -73,10 +85,9 @@ module.exports = function decodeArgs(optDesc, argv) {
         continue;
       }
       if (rest) {
-        let restArgs = args.slice(ix-1);
-        result.apply = result.apply.concat(restArgs);
-        result.values[name] = restArgs;
-        ix = args.length;
+        inRest = name;
+        result.apply.push(arg);
+        result.values[inRest] = [arg];
       } else {
         result.apply.push(arg);
         result.values[name] = arg;
