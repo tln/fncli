@@ -235,5 +235,40 @@ describe('decodeArgs', function () {
       assert.deepEqual(result.apply, ['hello', {theOption: '1'}]);
     });
   });
+  describe('speed test', function () {
+    beforeEach(function () {
+      opts = {
+        optionParamIndex: null,
+        options: {},
+        positional: [
+          {name: 'x', rest: false, required: true, synopsis: null},
+          {name: 'y', rest: true, required: false, synopsis: null}]
+      };
+    });
+    it('handles lots of args and is not O(n^2)', function () {
+      const {performance: {now}} = require('perf_hooks');
+      const warmup = 100000, 
+        small = 25000, 
+        factor = 100,
+        maxSlowdown = factor * 5;
+      assert(small*factor > 2097152); // typical `getconf ARG_MAX`
+
+      // warmup run
+      let args = Array.from({length:warmup}).map(String)
+      decodeArgs(opts, args);
+
+      args = Array.from({length:small}).map(String)
+      let t0 = now();
+      decodeArgs(opts, args);
+      const elapsedSmall = now() - t0;
+
+      args = Array.from({length:small * factor}).map(String);
+      t0 = now();
+      decodeArgs(opts, args);
+      const elapsedLarge = now() - t0;
+
+      assert((elapsedLarge/elapsedSmall) < maxSlowdown, elapsedLarge/elapsedSmall);
+    });
+  });
 });
 

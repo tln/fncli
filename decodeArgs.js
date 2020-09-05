@@ -14,9 +14,9 @@
 module.exports = function decodeArgs(optDesc, argv) {
   let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null};
   let args = argv.concat(), pos = optDesc.positional.concat();
-  let arg, m, allowOptions = true;
-  while (args.length) {
-    arg = args.shift();
+  let arg, m, ix = 0, allowOptions = true;
+  while (ix < args.length) {
+    arg = args[ix++];
     if (arg === '--' && allowOptions) {
       allowOptions = false;
       continue;
@@ -28,7 +28,7 @@ module.exports = function decodeArgs(optDesc, argv) {
       if (!name) {
         result.error = "Unknown option";
       } else if (hasArg) {
-        if (!optVal) optVal = args.shift();
+        if (!optVal) optVal = args[ix++]; // may access off end of array -- that's ok
         if (!optVal) result.error = "Option missing value";
       } else {
         if (optVal) result.error = "Didn't expect value for flag argument";
@@ -49,7 +49,7 @@ module.exports = function decodeArgs(optDesc, argv) {
         } else if (hasArg) {
           optVal = arg;
           arg = '';
-          if (!optVal) optVal = args.shift();
+          if (!optVal) optVal = args[ix++];
           if (!optVal) result.error = "Option missing value";
         } else {
           optVal = true;
@@ -73,9 +73,10 @@ module.exports = function decodeArgs(optDesc, argv) {
         continue;
       }
       if (rest) {
-        result.apply.push(arg, ...args);
-        result.values[name] = [arg].concat(args);
-        args = [];
+        let restArgs = args.slice(ix-1);
+        result.apply = result.apply.concat(restArgs);
+        result.values[name] = restArgs;
+        ix = args.length;
       } else {
         result.apply.push(arg);
         result.values[name] = arg;
