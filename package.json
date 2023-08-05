@@ -1,6 +1,6 @@
 {
   "name": "fncli",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "cli framework using function signatures",
   "main": "index.js",
   "types": "index.d.ts",
