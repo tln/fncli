@@ -17,5 +17,8 @@
   "repository": "tln/fncli",
   "devDependencies": {
     "mocha": "^7.1.0"
+  },
+  "dependencies": {
+    "acorn": "^8.10.0"
   }
 }

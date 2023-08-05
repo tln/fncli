@@ -1,3 +1,5 @@
+const {Parser} = require("acorn")
+
 /**
  * Return an opts data structure that describes the options and arguments.
  * @param {*} func
@@ -19,57 +21,99 @@ module.exports = function parseSignatures(handlers) {
   };
 }
 
-function parseSignature(func) {
-  // Find arguments from function source code (ie, the functions string representation)
-  let [synopsis, params] = paramString(func);
-  let re = /({)|(}\s*)|(\.\.\.)?(\w+)(?:\s*:\s*(\w+))?(?:\s*=([^,}/]+))?,?\s*(?:\/\/([^\n]+)|\/\*(.*?)\*\/)?\s*/g, m, inOptions = false;
 
-  let result = {synopsis, optionParamIndex: null, options: {}, positional: []};
-  while (m = re.exec(params)) {
-    let [, startOptions, endOptions, dotdotdot, name, alias, defaultExpr, synopsis, synopsis2] = m;
-    synopsis = synopsis || synopsis2 || null;
-    if (synopsis) synopsis = synopsis.trim();
-    if (defaultExpr) defaultExpr = defaultExpr.trim();
-    if (startOptions) {
-      if (result.optionParamIndex !== null) throw "Can't nest/repeat options";
-      inOptions = true;
-      result.optionParamIndex = result.positional.length;
-    } else if (endOptions) {
-      console.assert(inOptions);
-      inOptions = false;
-    } else if (inOptions) {
-      result.options[name] = {name, hasArg: defaultExpr !== 'false', synopsis};
-      if (alias) {
-        result.options[name].alias = alias;
-        result.options[alias] = result.options[name];
-      }
-    } else {
-      let rest = !!dotdotdot;
-      result.positional.push({name, required: !defaultExpr && !rest, synopsis, rest});
+function parseSignature(fn) {
+  const result = {
+    synopsis: null,
+    optionParamIndex: null,
+    options: {},
+    positional: [],
+  };
+  // massage source into somthing acorn will parse.
+  // 'function(){}' -> '(function(){})'
+  // 'a(){}' -> 'function a(){}'
+
+  let comments = [], options = {
+    ecmaVersion: 'latest', 
+    onComment(block, text, start, end) {
+        comments.push([text, start]);
+    },
+  };
+  let node, source = '('+fn+')';
+  try{
+    node = Parser.parse(source, options)
+  } catch(e) {
+    // function source may be using method shorthand, eg {a(){}}.a.toString() -> 'a() {}'
+    source = '(function ' + fn.toString().replace(/^async /, '') + ')'
+    node = Parser.parse(source, options)
+  }
+  node = node.body[0].expression;
+  // remove comments after start of body
+  comments = comments.filter(c => c[1] < node.body.start)
+
+  let firstTimeCalled = true;
+  function setSynopsis(end=source.length) {
+    if (comments.length && result.synopsis == null && comments[0][1] < end) {
+      // first comment is the function synopsis, as long as it starts before the token
+      result.synopsis = comments.shift()[0].trim();
     }
   }
+  function getCommentUntil(tokenEnd, name) {
+      if (firstTimeCalled) firstTimeCalled = setSynopsis(tokenEnd);
+      if (!comments.length) return null;
+
+      // find the end of the line after tokenEnd
+      const re = /\n|$/g; 
+      re.lastIndex = tokenEnd;
+      const until = re.exec(source).index;
+
+
+      // remove comments until that index and join
+      let ix = comments.findIndex(c => c[1] > until);
+      if (ix == -1) ix = comments.length;
+      return comments.splice(0, ix).map(c => c[0]).join('\n').trim();
+  }
+
+  function mapNodes(nodes, handlers, unknown=node=>({error: 'unknown node type', type: node.type, node})) {
+      return nodes.map(node => (handlers[node.type]||unknown)(node))
+  }
+  function positional({name, required=false, rest=false, end}) {
+    result.positional.push({name, required, rest, synopsis: getCommentUntil(end)});
+  }
+  mapNodes(node.params, {
+      Identifier({name, end}) {
+        positional({name, end, required: true});
+      },
+      RestElement({argument: {name}, end}) {
+        positional({name, end, rest: true});
+      },
+      AssignmentPattern({left: {name}, end}) {
+        positional({name, end});
+      },
+      ObjectPattern({properties}) {
+          if (result.optionParamIndex) throw new Error('only one options object allowed');
+          result.optionParamIndex = result.positional.length;
+          mapNodes(properties, {
+              Property({key: {name}, value: {name: alias, left, right}, end}) {
+                  if (left) alias = left.name;
+                  if (name == alias) alias = undefined;
+                  const hasArg = !(right && right.type == 'Literal' && right.value === false);
+                  const synopsis = getCommentUntil(end);
+                  result.options[name] = {name, hasArg, synopsis};
+                  if (alias) {
+                    result.options[name].alias = alias;
+                    result.options[alias] = result.options[name];
+                  }
+              }
+          });
+      }
+  });
+
+  // If there are no args, the synopsis won't be set yet.
+  setSynopsis();
+
+  // warning if unused comments?
   return result;
 }
 
-function paramString(func) {
-  // extract param string from function, eg function(x) {..} => 'x'
-  // Allows balanced parens.
-  const s = func.toString(), start = s.indexOf('(');
-  console.assert(start > -1);
-  let d = 1, i = start+1;
-  for (; d > 0 && i < s.length; i++) {
-    d += {'(': 1, ')': -1}[s[i]] || 0;
-  }
-  const params = s.slice(start+1, i-1).trim();
-  return extractComment(params);
-}
 
-function extractComment(params) {
-  let m = /^\/\/([^\n]+)|^\/\*(.*?)\*\//.exec(params);
-  let comment = null;
-  if (m) {
-    comment = (m[1] || m[2]).trim();
-    params = params.substring(m[0].length + m.index);
-  }
- return [comment, params]
-}

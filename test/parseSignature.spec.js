@@ -117,6 +117,12 @@ describe('parseSignature', function () {
       positional: [{name: 'x', rest: false, required: false, rest: true, synopsis: null}]
     });
   });
+  it("doesn't use comments from function body", function () {
+    let result = parseSignature(()=>{
+      /* hello */
+    });
+    assert(!result.synopsis, result);
+  })
 });
 
 describe('parseSignature commands', function () {
