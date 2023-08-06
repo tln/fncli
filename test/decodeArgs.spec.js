@@ -145,6 +145,15 @@ describe('decodeArgs', function () {
       let result = decodeArgs(opts, ['-vf']);
       assert.ok(result.error);
     });
+    it('gives error with unknown options after args', function () {
+      let result = decodeArgs(opts, ['abc.com', '8080', '-f']);
+      assert.ok(result.error);
+    });
+    it('gives error with unknown option in rest argument', function () {
+      let opts2 = {...opts, positional: [{name: 'host', rest: true, required: false}]}
+      let result = decodeArgs(opts, ['a', 'x', 'y', '-f']);
+      assert.ok(result.error);
+    });
     it('does not treat "-" as an option', function () {
       let result = decodeArgs(opts, ['-']);
       assert(!result.error);
@@ -284,7 +293,7 @@ describe('decodeArgs', function () {
       };
     });
     it('handles lots of args and is not O(n^2)', function () {
-      const {performance: {now}} = require('perf_hooks');
+      const {performance} = require('perf_hooks');
       const warmup = 100000, 
         small = 25000, 
         factor = 100,
@@ -296,14 +305,14 @@ describe('decodeArgs', function () {
       decodeArgs(opts, args);
 
       args = Array.from({length:small}).map(String)
-      let t0 = now();
+      let t0 = performance.now();
       decodeArgs(opts, args);
-      const elapsedSmall = now() - t0;
+      const elapsedSmall = performance.now() - t0;
 
       args = Array.from({length:small * factor}).map(String);
-      t0 = now();
+      t0 = performance.now();
       decodeArgs(opts, args);
-      const elapsedLarge = now() - t0;
+      const elapsedLarge = performance.now() - t0;
 
       assert((elapsedLarge/elapsedSmall) < maxSlowdown, elapsedLarge/elapsedSmall);
     });
