@@ -44,7 +44,7 @@ function parseSignature(fn) {
     node = Parser.parse(source, options)
   } catch(e) {
     // function source may be using method shorthand, eg {a(){}}.a.toString() -> 'a() {}'
-    source = '(function ' + fn.toString().replace(/^async /, '') + ')'
+    source = '(' + fn.toString().replace(/^(async )?/, '$1function ') + ')'
     node = Parser.parse(source, options)
   }
   node = node.body[0].expression;

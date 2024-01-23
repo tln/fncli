@@ -122,7 +122,19 @@ describe('parseSignature', function () {
       /* hello */
     });
     assert(!result.synopsis, result);
-  })
+  });
+  it("works with async functions 1", function () {
+    parseSignature(async ()=>{ await 0; });
+  });
+  it("works with async functions 2", function () {
+    parseSignature(async function () { await 0; });
+  });
+  it("works with async functions 3", function () {
+    parseSignature({async command() { await 0; }});
+  });
+  it("works with async functions 4", function () {
+    parseSignature({command: async ()=>{ await 0; }});
+  });
 });
 
 describe('parseSignature commands', function () {
