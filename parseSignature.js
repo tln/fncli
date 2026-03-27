@@ -87,8 +87,29 @@ function parseSignature(fn) {
       RestElement({argument: {name}, end}) {
         positional({name, end, rest: true});
       },
-      AssignmentPattern({left: {name}, end}) {
-        positional({name, end});
+      AssignmentPattern({left, end}) {
+        // Handle default values for both identifiers and object patterns
+        if (left.type === 'ObjectPattern') {
+          // This is an object pattern with a default, e.g., {opt1}={}
+          if (result.optionParamIndex) throw new Error('only one options object allowed');
+          result.optionParamIndex = result.positional.length;
+          mapNodes(left.properties, {
+              Property({key: {name}, value: {name: alias, left: valueLeft, right}, end}) {
+                  if (valueLeft) alias = valueLeft.name;
+                  if (name == alias) alias = undefined;
+                  const hasArg = !(right && right.type == 'Literal' && right.value === false);
+                  const synopsis = getCommentUntil(end);
+                  result.options[name] = {name, hasArg, synopsis};
+                  if (alias) {
+                    result.options[name].alias = alias;
+                    result.options[alias] = result.options[name];
+                  }
+              }
+          });
+        } else {
+          // This is an identifier with a default value
+          positional({name: left.name, end});
+        }
       },
       ObjectPattern({properties}) {
           if (result.optionParamIndex) throw new Error('only one options object allowed');

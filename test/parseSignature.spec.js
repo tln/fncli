@@ -135,6 +135,27 @@ describe('parseSignature', function () {
   it("works with async functions 4", function () {
     parseSignature({command: async ()=>{ await 0; }});
   });
+  it('object pattern with default value', function () {
+    let result = parseSignature((arg, {opt1}={})=>0);
+    assert.deepEqual(result, {
+      synopsis: null,
+      optionParamIndex: 1,
+      options: {opt1: {name: 'opt1', hasArg: true, synopsis: null}},
+      positional: [{name: 'arg', rest: false, required: true, synopsis: null}]
+    });
+  });
+  it('object pattern with default value and multiple options', function () {
+    let result = parseSignature((arg, {opt1, verbose=false}={})=>0);
+    assert.deepEqual(result, {
+      synopsis: null,
+      optionParamIndex: 1,
+      options: {
+        opt1: {name: 'opt1', hasArg: true, synopsis: null},
+        verbose: {name: 'verbose', hasArg: false, synopsis: null}
+      },
+      positional: [{name: 'arg', rest: false, required: true, synopsis: null}]
+    });
+  });
 });
 
 describe('parseSignature commands', function () {
