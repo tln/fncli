@@ -194,4 +194,47 @@ describe('parseSignature commands', function () {
       }
     });
   });
+  it('nested sub-commands', function () {
+    let result = parseSignature({
+      secrets: {
+        add(envar, {doit=false}) {},
+      },
+      status() {}
+    });
+    assert.deepEqual(result, {
+      optionParamIndex: null,
+      options: {},
+      positional: [{name: 'command', required: true}],
+      commands: {
+        secrets: {
+          name: 'secrets',
+          optDesc: {
+            optionParamIndex: null,
+            options: {},
+            positional: [{name: 'command', required: true}],
+            commands: {
+              add: {
+                name: 'add',
+                optDesc: {
+                  synopsis: null,
+                  optionParamIndex: 1,
+                  options: {doit: {name: 'doit', hasArg: false, synopsis: null}},
+                  positional: [{name: 'envar', rest: false, required: true, synopsis: null}]
+                }
+              }
+            }
+          }
+        },
+        status: {
+          name: 'status',
+          optDesc: {
+            synopsis: null,
+            optionParamIndex: null,
+            options: {},
+            positional: []
+          }
+        }
+      }
+    });
+  });
 });

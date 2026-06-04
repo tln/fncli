@@ -197,6 +197,52 @@ describe('decodeArgs', function () {
       assert.deepEqual(result.apply, ['x', undefined, {module: 'fncli'}]);
       assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
       assert.deepEqual(result.optionValues, {module: 'fncli'});
+      assert.deepEqual(result.commandPath, ['b']);
+    });
+  });
+  describe('using nested commands', function () {
+    beforeEach(function () {
+      let group = name => ({
+        name,
+        optDesc: {
+          optionParamIndex: null,
+          options: {},
+          positional: [{name: 'command', rest: false, required: true}],
+          commands: {
+            add: {
+              name: 'add',
+              optDesc: {
+                optionParamIndex: 1,
+                options: {doit: {name: 'doit', hasArg: false, synopsis: null}},
+                positional: [{name: 'envar', rest: false, required: true, synopsis: null}]
+              }
+            }
+          }
+        }
+      });
+      opts = {
+        optionParamIndex: null,
+        options: {},
+        positional: [{name: 'command', rest: false, required: true}],
+        commands: {secrets: group('secrets')}
+      };
+    });
+    it('parses a nested command', function () {
+      let result = decodeArgs(opts, ['secrets', 'add', 'FOO', '--doit']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['FOO', {doit: true}]);
+      assert.deepEqual(result.commandPath, ['secrets', 'add']);
+      assert.equal(result.command.name, 'add');
+    });
+    it('gives error when sub-command is missing', function () {
+      let result = decodeArgs(opts, ['secrets']);
+      assert.ok(result.error);
+      assert.deepEqual(result.commandPath, ['secrets']);
+      assert.equal(result.command.name, 'secrets');
+    });
+    it('gives error on unknown sub-command', function () {
+      let result = decodeArgs(opts, ['secrets', 'nope']);
+      assert.ok(result.error);
     });
   });
   describe('rest params', function () {

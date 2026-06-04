@@ -104,6 +104,61 @@ describe('fncli', function () {
       assert(errs[0].match(/\[z\.\.\.\]/m), errs);
     });
   });
+  describe('parses nested sub-commands correctly', function () {
+    let commands = {
+      secrets: {
+        add(envar, {doit=false}) {
+          result = {command: 'secrets add', envar, doit};
+        },
+        deploy({doit=false, deploy=false}) {
+          result = {command: 'secrets deploy', doit, deploy};
+        }
+      },
+      status() {
+        result = 'status';
+      }
+    };
+
+    it('calls a nested command', function () {
+      subject(commands, ['secrets', 'add', 'FOO', '--doit']);
+      assert(errs.length === 0, errs);
+      assert.deepEqual(result, {command: 'secrets add', envar: 'FOO', doit: true});
+    });
+
+    it('calls a sibling nested command', function () {
+      subject(commands, ['secrets', 'deploy', '--deploy']);
+      assert(errs.length === 0, errs);
+      assert.deepEqual(result, {command: 'secrets deploy', doit: false, deploy: true});
+    });
+
+    it('still calls top-level commands', function () {
+      subject(commands, ['status']);
+      assert(errs.length === 0, errs);
+      assert.equal(result, 'status');
+    });
+
+    it('shows sub-commands when group is given without a sub-command', function () {
+      subject(commands, ['secrets']);
+      assert(errs.length);
+      // Usage line shows the group
+      assert(errs[0].match(/usage: script.js secrets/m), errs);
+      // Lists the group's sub-commands
+      assert(errs[0].match(/^  add$/m), errs);
+      assert(errs[0].match(/^  deploy$/m), errs);
+    });
+
+    it('shows the full command path on usage errors', function () {
+      subject(commands, ['secrets', 'add']);
+      assert(errs.length);
+      assert(errs[0].match(/usage: script.js secrets add/m), errs);
+    });
+
+    it('gives error on unknown sub-command', function () {
+      subject(commands, ['secrets', 'nope']);
+      assert(errs.length);
+      assert(errs[0].match(/Command not found/m), errs);
+    });
+  });
   describe('handles camelCase <=> kebab case correctly', function () {
     let fn = (theParam, {theOption, O=false}) => result = [theParam, theOption, O];
     it('parses camelCase option', function () {

@@ -34,19 +34,21 @@ function parseAndRun(argv, commands, config) {
   if (decoded.error) {
     console.error(usage(decoded));
   } else {
-    const func = getHandler(commands, decoded.command);
+    const func = getHandler(commands, decoded.commandPath);
     applyFunc(decoded, func);
   }
 }
 
-function getHandler(commands, selectedCommand) {
-  if (typeof commands === 'function') {
-    return commands;
-  } else if (selectedCommand) {
-    return commands[selectedCommand.name];
-  } else {
-    throw new Error('invalid type:', commands);
+function getHandler(commands, commandPath) {
+  // Walk the decoded command path down to the handler function.
+  let handler = commands;
+  for (let name of commandPath) {
+    handler = handler[name];
   }
+  if (typeof handler !== 'function') {
+    throw new Error('invalid type:', handler);
+  }
+  return handler;
 }
 
 /**

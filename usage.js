@@ -3,7 +3,7 @@ const {basename} = require('path');
 /**
  * Formats a usage string from parsed options.
  */
-module.exports = function usage({optDesc, error, command}) {
+module.exports = function usage({optDesc, error, command, commandPath}) {
   let {arg0} = optDesc;
   console.assert(arg0);
   let s = '';
@@ -16,7 +16,7 @@ module.exports = function usage({optDesc, error, command}) {
   s += `usage: ${basename(arg0)}`;
   if (command) {
     optDesc = command.optDesc;
-    s += " " + command.name;
+    s += " " + (commandPath && commandPath.length ? commandPath.join(' ') : command.name);
   }
   let hasOptions = Object.keys(optDesc.options).length > 0;
   if (hasOptions) s += " [options]";

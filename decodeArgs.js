@@ -5,6 +5,7 @@
  *   values: object with values for all options
  *   optionValues: option flag values only (no positional)
  *   command: entry from positional commands objects
+ *   commandPath: names of the commands selected at each nesting level
  *   apply: flattened arguments ready to apply
  *   error: "description of error"
  *   optDesc: structure used to parse options
@@ -12,7 +13,7 @@
  * @param {*} args
  */
 module.exports = function decodeArgs(optDesc, argv) {
-  let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null};
+  let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null, commandPath: []};
   let args = argv.concat(), pos = optDesc.positional.concat();
   let arg, m, ix = 0, allowOptions = true, inRest = null;
   while (ix < args.length) {
@@ -74,11 +75,13 @@ module.exports = function decodeArgs(optDesc, argv) {
       if (!name) result.error = "Too many arguments";
       if (optDesc.commands) {
         // switch to handling optDesc from command. Don't include the
-        // command name in the result.
+        // command name in the result. Nested groups re-enter here on
+        // the next positional, consuming one path segment per level.
         result.command = optDesc.commands[arg];
         if (!result.command) {
           result.error = "Command not found";
         } else {
+          result.commandPath.push(arg);
           optDesc = result.command.optDesc;
           pos = optDesc.positional.concat();
         }

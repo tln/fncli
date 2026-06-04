@@ -10,7 +10,8 @@ module.exports = function parseSignatures(handlers) {
   }
   let commands = {};
   for (let name in handlers) {
-    let optDesc = parseSignature(handlers[name]);
+    // Plain-object values are nested sub-command groups; recurse.
+    let optDesc = parseSignatures(handlers[name]);
     commands[name] = {name, optDesc};
   }
   return {

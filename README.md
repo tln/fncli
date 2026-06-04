@@ -32,6 +32,37 @@ require('fncli')({
 });
 ```
 
+## Nested sub-commands
+
+Nesting objects creates sub-commands of sub-commands.
+
+```
+require('fncli')({
+  secrets: {
+    add(envar, {doit=false}) {
+
+    },
+    deploy({doit=false, deploy=false}) {
+
+    }
+  },
+  status() {
+
+  }
+});
+```
+
+This would result in the following interface:
+
+```
+script secrets add ENVAR --doit
+script secrets deploy --doit --deploy
+script status
+```
+
+Running a group without a sub-command (e.g. `script secrets`) prints
+usage with the available sub-commands.
+
 ## Aliases, short options
 
 Single-letter options become short options. Aliases use ES6 syntax for assigning to new variable names.
