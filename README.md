@@ -1,15 +1,16 @@
-# fncli -- cli framework using function signatures
+# fncli
 
+**fncli** turns your `main()` into a CLI and `argv` into a function call.
+
+## Introduction
+
+```javascript
+// 1. write function
+function main(name, {greeting="Hello", shout=false}){}
+
+// 2. call fncli
+fncli(main)
 ```
-require('fncli')(
-  // Pass a main function. Parameters become arguments or options
-  function (name, {greeting="Hello", shout=false}) {
-
-  }
-);
-```
-This would result in the following interface:
-
 ```
 usage: script [options] name
 options:
@@ -17,145 +18,62 @@ options:
   --shout
 ```
 
-## Sub-command style
+Function parameters become CLI arguments and options; defaults make them optional. **fncli** parses the CLI arguments, calls your function, and awaits the result.
 
+```javascript
+// Multiple functions become sub-commands
+function clone(  // Clone the repo
+  url  // Repository URL
+){}
+function push({f: force=false}, upstream="origin"){}
+function add({A: all=false}, ...files){}
+
+// Call fncli with object
+fncli({
+  clone, 
+  push, 
+  add, 
+})
 ```
-require('fncli')({
-  // Pass an object with functions. Function names become
-  // subcommands.
-  hello(name, {greeting="Hello", shout=false}) {
-
-  },
-  goodbye({shout=false}) {
-
-  }
-});
 ```
+usage: script command
 
-## Nested sub-commands
-
-Nesting objects creates sub-commands of sub-commands.
-
-```
-require('fncli')({
-  secrets: {
-    add(envar, {doit=false}) {
-
-    },
-    deploy({doit=false, deploy=false}) {
-
-    }
-  },
-  status() {
-
-  }
-});
+commands:
+  clone        Clone the repo
+  push
+  add
 ```
 
-This would result in the following interface:
+Pass objects to make sub-commands. Nested objects make sub-sub-commands (and so on).
+Comments become help text. Rest syntax `...args` becomes rest parameters.
+
+## Install
 
 ```
-script secrets add ENVAR --doit
-script secrets deploy --doit --deploy
-script status
+npm install fncli
 ```
 
-Running a group without a sub-command (e.g. `script secrets`) prints
-usage with the available sub-commands.
+Use either `import` or `require`.
 
-## Aliases, short options
+## Reference
 
-Single-letter options become short options. Aliases use ES6 syntax for assigning to new variable names.
+| JavaScript | CLI behavior |
+|---|---|
+| `name` | required positional arg |
+| `name = "x"` | optional positional with default |
+| `...names` | rest positional (zero or more) |
+| `{flag = false}` | `--flag` boolean flag |
+| `{opt = "x"}` | `--opt=<value>` with default |
+| `{f: flag = false}` | `-f` / `--flag` (short alias) |
+| object of functions passed to `fncli` | sub-commands (function names) |
+| nested objects | nested sub-commands |
+| `// comment` before first param | command synopsis |
+| `// comment` after a param | per-arg/option description |
+| `throw "error: ..."` | prints usage + error |
+| `async function` | awaited before exit |
+| `--` in argv | stops option parsing |
+| `-h` / `--help` | added automatically |
 
-In this example, the `-s` option and `--shout` are aliases.
+## License
 
-```
-require('fncli')(
-  function (// Description of command
-    name, // Description of name
-    {
-      greeting="Hello", // Description of greeting
-      s: shout=false
-    }) {
-      // Use `shout` in here
-  }
-);
-```
-
-## Repeating parameters
-
-Rest parameters allow zero or more arguments to be passed.
-
-```
-require('fncli')(
-  function (
-    ...names,
-    ) {
-
-  }
-);
-```
-
-## Including descriptions
-
-Descriptions of commands, arguments and options can be accomplished using comments.
-
-```
-require('fncli')(
-  function (// Description of command
-    name, // Description of name
-    {
-      greeting="Hello", // Description of greeting
-      shout=false
-    }) {
-
-  }
-);
-```
-This would result in the following interface:
-
-```
-error: Missing required argument
-usage: script [options] name
-
-Description of command
-
-args:
-  name    Description of name
-
-options:
-  --greeting=<value>   Description of greeting
-  --shout=<value>
-```
-
-## Usage errors
-
-Throwing "error:" messages will show usage and the error.
-
-```
-require('fncli')(
-  function (
-    ...names, // At least one
-    ) {
-    if (names.length < 1) {
-      throw "error: pass at least one name";
-    }
-  }
-);
-```
-
-## Config argument
-
-The `fncli` function accepts an object as an optional second parameter, with:
-
-- `argv` to process that instead of `process.argv`.
-- `help: true` to add a `--help` option that prints the usage.
-
-NB: `help` is likely to default to true in the future.
-
-## Argument handing
-
-An argument of -- is skipped, and following arguments are not treated as options.
-
-Until -- is seen, options are allowed after arguments. Eg, passing `foo bar -x` will set an `x` option to `true`, or be an error if there is no `-x` option.
-
+MIT
