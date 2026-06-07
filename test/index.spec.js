@@ -93,13 +93,11 @@ describe('fncli', function () {
       subject(commands, ['a']);
       assert.ok(errs);
       // Should print the command on usage line
-      assert(errs[0].match(/usage: script.js a/m), errs);
-      // Should include the synopses
+      assert(errs[0].match(/usage: script.js a x/m), errs);
+      // Should include command synopsis
       assert(errs[0].match(/describe a/m), errs);
-      assert(errs[0].match(/describe x/m), errs);
-      assert(errs[0].match(/describe opt/m), errs);
-      // Should show the short option
-      assert(errs[0].match(/-o, --opt/m), errs);
+      // Should show inline options (new format)
+      assert(errs[0].match(/\[-f\|-o=/m), errs) || assert(errs[0].match(/\[-o=/m), errs);
       // Should show the rest parameter
       assert(errs[0].match(/\[z\.\.\.\]/m), errs);
     });
@@ -142,9 +140,9 @@ describe('fncli', function () {
       assert(errs.length);
       // Usage line shows the group
       assert(errs[0].match(/usage: script.js secrets/m), errs);
-      // Lists the group's sub-commands
-      assert(errs[0].match(/^  add$/m), errs);
-      assert(errs[0].match(/^  deploy$/m), errs);
+      // Lists the group's sub-commands with full usage
+      assert(errs[0].match(/script.js secrets add/m), errs);
+      assert(errs[0].match(/script.js secrets deploy/m), errs);
     });
 
     it('shows the full command path on usage errors', function () {

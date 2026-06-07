@@ -19,6 +19,7 @@
     "mocha": "^7.1.0"
   },
   "dependencies": {
-    "acorn": "^8.10.0"
+    "acorn": "^8.10.0",
+    "picocolors": "^1.1.1"
   }
 }

@@ -25,15 +25,19 @@ function parseAndRun(argv, commands, config) {
   const opts = parseSignature(commands);
   opts.arg0 = arg0;
   if (config.help) {
-    opts.options.help = {name: 'help', hasArg: false, synopsis: 'Prints this message'};
+    opts.options.h = {name: 'help', alias: 'h', hasArg: false, synopsis: 'Prints this message'};
+    opts.options.help = opts.options.h;
   }
   const decoded = decodeArgs(opts, args);
-  if (config.help && decoded.optionValues.help) {
+  const isHelpRequested = config.help && decoded.optionValues.help;
+  if (isHelpRequested) {
     decoded.error = true;
   }
   if (decoded.error) {
-    process.exitCode = 2;
-    console.error(usage(decoded));
+    if (!isHelpRequested) {
+      process.exitCode = 2;
+    }
+    console.error(usage({...decoded, isHelp: isHelpRequested}));
   } else {
     const func = getHandler(commands, decoded.commandPath);
     applyFunc(decoded, func);
