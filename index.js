@@ -1,5 +1,5 @@
 const DEFAULT_OPTS = {
-  help: false
+  help: true
 };
 
 const parseSignature = require('./parseSignature');
@@ -32,6 +32,7 @@ function parseAndRun(argv, commands, config) {
     decoded.error = true;
   }
   if (decoded.error) {
+    process.exitCode = 2;
     console.error(usage(decoded));
   } else {
     const func = getHandler(commands, decoded.commandPath);
@@ -57,15 +58,36 @@ function getHandler(commands, commandPath) {
  * @param {*} args
  * @param {*} func
  */
-async function applyFunc(decoded, func) {
+function applyFunc(decoded, func) {
+  let result;
   try {
-    await func.apply(null, decoded.apply);
+    result = func.apply(null, decoded.apply);
   } catch(e) {
-    // Handle usage errors, re-throw the rest
-    if (e.toString().startsWith('error:')) {
-      console.error(usage({...decoded, error: e.toString()}));
-    } else {
-      throw e;
-    }
+    handleHandlerError(decoded, e);
+    return;
+  }
+  if (result && typeof result.then === 'function') {
+    // Async handler — await the promise but keep error handling consistent.
+    return result.then(
+      r => handleReturn(decoded, r),
+      e => handleHandlerError(decoded, e)
+    );
+  }
+  handleReturn(decoded, result);
+}
+
+function handleReturn(decoded, result) {
+  if (typeof result === 'string' && result.startsWith('error:')) {
+    process.exitCode = 1;
+    console.error(usage({...decoded, error: result}));
+  }
+}
+
+function handleHandlerError(decoded, e) {
+  if (e && typeof e.toString === 'function' && e.toString().startsWith('error:')) {
+    process.exitCode = 1;
+    console.error(usage({...decoded, error: e.toString()}));
+  } else {
+    throw e;
   }
 }

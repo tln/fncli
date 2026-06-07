@@ -216,6 +216,21 @@ describe('fncli', function () {
     });
   });
 
+  describe('handler validation', function () {
+    it('treats a returned "error: ..." string as a usage error', function () {
+      let fn = (...files) => files.length === 0 ? 'error: pass at least one file' : null;
+      subject(fn, []);
+      assert(errs.length, 'expected an error to be printed');
+      assert(/error: pass at least one file/.test(errs.join('\n')), errs);
+      assert(/usage:/.test(errs.join('\n')), errs);
+    });
+    it('ignores returned strings that do not start with "error:"', function () {
+      let fn = () => 'all good';
+      subject(fn, []);
+      assert(errs.length === 0, errs);
+    });
+  });
+
   describe('processes process.argv', function () {
     it('runs the command successfully', function () {
       let fncli = require('../index');
@@ -225,5 +240,47 @@ describe('fncli', function () {
       assert(result === 'x');
     });
   });
-  
+
+  describe('exit codes', function () {
+    let exitCode = null;
+    function subjectWithExitCode(fn, args, config={}) {
+      let fncli = require('../index');
+      let orig = console.error;
+      errs = [];
+      exitCode = null;
+      process.exitCode = undefined;
+      console.error = (e) => errs.push(e);
+      try {
+        fncli(fn, {...config, argv: ['node', 'script.js'].concat(args)});
+      } finally {
+        console.error = orig;
+        exitCode = process.exitCode;
+      }
+    }
+
+    it('exits with code 2 on usage error', function () {
+      let fn = (required) => {};
+      subjectWithExitCode(fn, []);
+      assert.equal(exitCode, 2, 'expected exit code 2 for usage error');
+    });
+
+    it('exits with code 1 on returned error', function () {
+      let fn = () => 'error: validation failed';
+      subjectWithExitCode(fn, []);
+      assert.equal(exitCode, 1, 'expected exit code 1 for returned error');
+    });
+
+    it('exits with code 1 on thrown error', function () {
+      let fn = () => { throw 'error: handler failed'; };
+      subjectWithExitCode(fn, []);
+      assert.equal(exitCode, 1, 'expected exit code 1 for thrown error');
+    });
+
+    it('does not set exit code on success', function () {
+      let fn = () => {};
+      subjectWithExitCode(fn, []);
+      assert.equal(exitCode, undefined, 'expected no exit code on success');
+    });
+  });
+
 });
