@@ -1,4 +1,4 @@
 declare module 'fncli' {
     export = fncli;
-    function fncli(main: any, argv?: string[]): void;
+    function fncli(commands: any, config?: { argv?: string[]; help?: boolean }): void;
 }
