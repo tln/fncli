@@ -1,0 +1,63 @@
+fncli Quick Reference
+
+import fncli from "fncli" // or require
+fncli(async function main(arg, optarg="default"){
+  // This signature becomes usage: ...
+}) 
+
+It turns your `main()` into a CLI and `argv` into a function call.
+Use destructuring for options:
+
+async function main({v: verbose=false, port=8080}, ...rest){
+  // This signature becomes usage: ... 
+}
+
+Multiple commands supported with an object:
+
+fncli({
+  async login({prod=true}) {},
+  async logout() {}
+})
+
+POSITIONAL ARGUMENTS
+  name                      required positional arg
+  name = "x"                optional positional with default
+  ...names                  rest positional (zero or more)
+
+OPTIONS
+  {flag = false}            --flag boolean flag
+  {opt = "x"}               --opt=<value> with default
+  {f: flag = false}         -f / --flag (short alias)
+
+COMMANDS
+  object of functions       sub-commands (function names)
+  nested objects            nested sub-commands
+
+COMMENTS & HELP
+  // comment before params  command synopsis
+  // comment after param    per-arg/option description
+
+ERROR HANDLING
+  return "error: ..."       prints usage + error, exit code 1
+  throw "error: ..."        prints usage + error, exit code 1
+
+SPECIAL
+  async function            awaited before exit
+  -- in argv                stops option parsing
+  -h / --help               added by default (help: true)
+
+EXIT CODES
+  0                         success
+  1                         handler validation/exception
+  2                         usage error (missing args, invalid options)
+
+EXAMPLE WITH USAGE DESCRIPTIONS
+
+function clone(
+  url,                      // Repository URL
+  {depth = undefined}       // Shallow clone depth
+) { /* ... */ }
+
+fncli({ clone })
+
+$ script clone https://github.com/user/repo --depth=1
