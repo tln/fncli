@@ -92,12 +92,14 @@ describe('fncli', function () {
     it('with missing args', function () {
       subject(commands, ['a']);
       assert.ok(errs);
+      console.log('errs', errs);
       // Should print the command on usage line
       assert(errs[0].match(/usage: script.js a x/m), errs);
       // Should include command synopsis
       assert(errs[0].match(/describe a/m), errs);
-      // Should show inline options (new format)
-      assert(errs[0].match(/\[-f\|-o=/m), errs) || assert(errs[0].match(/\[-o=/m), errs);
+      // Should show inline options (new format: long form with short alias)
+      assert(/\[--flag\|-f\]/.test(errs[0]), errs);
+      assert(/\[--opt=<value>\|-o=<value>\]/.test(errs[0]), errs);
       // Should show the rest parameter
       assert(errs[0].match(/\[z\.\.\.\]/m), errs);
     });
@@ -190,16 +192,19 @@ describe('fncli', function () {
     });
   });
   describe('adds a help option', function () {
-    it('adds a help option when usage error', function () {
-      // usage error (y not passed)
+    it('does not advertise --help in the usage text', function () {
+      // help is available but intentionally not listed (it would be noise).
       let x = 0, fn = (y) => x += +y;
       subject(fn, [], {help: true});
-      assert(/--help/.test(errs.join('\n')));
+      assert(errs.length, 'expected a usage error');
+      assert(!/--help/.test(errs.join('\n')), errs);
     });
     it('shows help when --help is passed', function () {
-      let x = 0, fn = (y='1') => x += +y;
+      let fn = (y='1') => {};
       subject(fn, ['--help'], {help: true});
-      assert(/--help/.test(errs.join('\n')));
+      // --help prints the usage (no error prefix), including the params.
+      assert(/^usage:/.test(errs.join('\n')), errs);
+      assert(/\[y\]/.test(errs.join('\n')), errs);
     });
     it('does not chide user --help is passed', function () {
       // ie, the usage starts with usage:
