@@ -59,15 +59,20 @@ function parseSignature(fn) {
       result.synopsis = comments.shift()[0].trim();
     }
   }
-  function getCommentUntil(tokenEnd, name) {
+  function getCommentUntil(tokenEnd, nextStart=Infinity) {
       if (firstTimeCalled) firstTimeCalled = setSynopsis(tokenEnd);
       if (!comments.length) return null;
 
       // find the end of the line after tokenEnd
-      const re = /\n|$/g; 
+      const re = /\n|$/g;
       re.lastIndex = tokenEnd;
-      const until = re.exec(source).index;
+      let until = re.exec(source).index;
 
+      // A trailing comment describes the param to its left. When several params
+      // share one physical line (`a, b, c, // comment`), don't let an earlier
+      // param swallow a comment that trails a later one: stop at the next
+      // param's start so the comment attaches to the param it actually follows.
+      until = Math.min(until, nextStart);
 
       // remove comments until that index and join
       let ix = comments.findIndex(c => c[1] > until);
@@ -76,30 +81,33 @@ function parseSignature(fn) {
   }
 
   function mapNodes(nodes, handlers, unknown=node=>({error: 'unknown node type', type: node.type, node})) {
-      return nodes.map(node => (handlers[node.type]||unknown)(node))
+      return nodes.map((node, i) => {
+          const nextStart = i + 1 < nodes.length ? nodes[i + 1].start : Infinity;
+          return (handlers[node.type]||unknown)(node, nextStart);
+      });
   }
-  function positional({name, required=false, rest=false, end}) {
-    result.positional.push({name, required, rest, synopsis: getCommentUntil(end)});
+  function positional({name, required=false, rest=false, end}, nextStart) {
+    result.positional.push({name, required, rest, synopsis: getCommentUntil(end, nextStart)});
   }
   mapNodes(node.params, {
-      Identifier({name, end}) {
-        positional({name, end, required: true});
+      Identifier({name, end}, nextStart) {
+        positional({name, end, required: true}, nextStart);
       },
-      RestElement({argument: {name}, end}) {
-        positional({name, end, rest: true});
+      RestElement({argument: {name}, end}, nextStart) {
+        positional({name, end, rest: true}, nextStart);
       },
-      AssignmentPattern({left, end}) {
+      AssignmentPattern({left, end}, nextStart) {
         // Handle default values for both identifiers and object patterns
         if (left.type === 'ObjectPattern') {
           // This is an object pattern with a default, e.g., {opt1}={}
           if (result.optionParamIndex) throw new Error('only one options object allowed');
           result.optionParamIndex = result.positional.length;
           mapNodes(left.properties, {
-              Property({key: {name}, value: {name: alias, left: valueLeft, right}, end}) {
+              Property({key: {name}, value: {name: alias, left: valueLeft, right}, end}, nextStart) {
                   if (valueLeft) alias = valueLeft.name;
                   if (name == alias) alias = undefined;
                   const hasArg = !(right && right.type == 'Literal' && right.value === false);
-                  const synopsis = getCommentUntil(end);
+                  const synopsis = getCommentUntil(end, nextStart);
                   result.options[name] = {name, hasArg, synopsis};
                   if (alias) {
                     result.options[name].alias = alias;
@@ -109,18 +117,18 @@ function parseSignature(fn) {
           });
         } else {
           // This is an identifier with a default value
-          positional({name: left.name, end});
+          positional({name: left.name, end}, nextStart);
         }
       },
       ObjectPattern({properties}) {
           if (result.optionParamIndex) throw new Error('only one options object allowed');
           result.optionParamIndex = result.positional.length;
           mapNodes(properties, {
-              Property({key: {name}, value: {name: alias, left, right}, end}) {
+              Property({key: {name}, value: {name: alias, left, right}, end}, nextStart) {
                   if (left) alias = left.name;
                   if (name == alias) alias = undefined;
                   const hasArg = !(right && right.type == 'Literal' && right.value === false);
-                  const synopsis = getCommentUntil(end);
+                  const synopsis = getCommentUntil(end, nextStart);
                   result.options[name] = {name, hasArg, synopsis};
                   if (alias) {
                     result.options[name].alias = alias;
