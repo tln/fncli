@@ -142,9 +142,9 @@ describe('fncli', function () {
       assert(errs.length);
       // Usage line shows the group
       assert(errs[0].match(/usage: script.js secrets/m), errs);
-      // Lists the group's sub-commands with full usage
-      assert(errs[0].match(/script.js secrets add/m), errs);
-      assert(errs[0].match(/script.js secrets deploy/m), errs);
+      // Lists the group's own sub-commands (each prefixed with the group path)
+      assert(errs[0].match(/^\s+secrets add\b/m), errs);
+      assert(errs[0].match(/^\s+secrets deploy\b/m), errs);
     });
 
     it('shows the full command path on usage errors', function () {
