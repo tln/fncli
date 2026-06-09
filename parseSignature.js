@@ -45,6 +45,10 @@ function parseSignature(fn) {
     node = Parser.parse(source, options)
   } catch(e) {
     // function source may be using method shorthand, eg {a(){}}.a.toString() -> 'a() {}'
+    // Discard comments collected during the failed parse above; otherwise
+    // onComment double-counts every comment (with stale offsets from the old
+    // source), polluting later params' descriptions.
+    comments.length = 0;
     source = '(' + fn.toString().replace(/^(async )?/, '$1function ') + ')'
     node = Parser.parse(source, options)
   }
