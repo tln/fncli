@@ -30,9 +30,14 @@ module.exports = function usage({optDesc, error, command, commandPath, isHelp}) 
     s += '  ' + optDesc.synopsis + '\n\n';
   }
 
-  const positionalSynopsis = formatPositionalArgs(optDesc.positional);
+  const positionalSynopsis = formatDetailRows(optDesc.positional, {}, '  ');
   if (positionalSynopsis) {
     s += theme.label('args:') + '\n' + positionalSynopsis + '\n';
+  }
+
+  const optionSynopsis = formatDetailRows([], optDesc.options, '  ');
+  if (optionSynopsis) {
+    s += theme.label('options:') + '\n' + optionSynopsis + '\n';
   }
 
   if (optDesc.commands) {
@@ -94,40 +99,50 @@ function formatOptionsInline(options) {
   return s;
 }
 
-function formatOptionFlag(name, hasArg) {
+function optionFlag(name, hasArg) {
   name = camelToKebabCase(name);
   const prefix = name.length > 1 ? '--' : '-';
-  return theme.option(`${prefix}${name}${hasArg ? '=<value>' : ''}`);
+  return `${prefix}${name}${hasArg ? '=<value>' : ''}`;
 }
 
-function formatPositionalArgs(positional) {
-  let s = '';
+function formatOptionFlag(name, hasArg) {
+  return theme.option(optionFlag(name, hasArg));
+}
+
+// Build aligned "label    synopsis" rows for positionals and/or options.
+// Labels are colored (args green, options yellow); synopses line up in a
+// column 4 spaces past the longest label. `indent` prefixes every row.
+function formatDetailRows(positional, options, indent) {
+  const rows = [];
+
   for (let {name, rest, required, synopsis} of positional) {
     if (!synopsis) continue;
-    name = camelToKebabCase(name);
-    if (rest) name += '...';
-    if (!required) name = "[" + name + "]";
-    s += `  ${name}    ${synopsis}\n`;
+    let label = camelToKebabCase(name);
+    if (rest) label += '...';
+    if (!required) label = '[' + label + ']';
+    rows.push({label, colored: theme.argument(label), synopsis});
   }
-  return s;
-}
 
-function formatOptions(options) {
-  let s = '';
   for (let [key, {name, alias, hasArg, synopsis}] of Object.entries(options)) {
-    if (key !== name) continue;
-
-    s += '  ';
+    // Skip alias entries (rendered with their canonical name), the implicit
+    // help flag, and options without a description.
+    if (key !== name || name === 'help' || !synopsis) continue;
+    let label, colored;
     if (alias) {
-      const shortForm = formatOptionFlag(alias, hasArg);
-      const longForm = formatOptionFlag(name, hasArg);
-      s += `${shortForm}, ${longForm}`;
+      label = `${optionFlag(alias, hasArg)}, ${optionFlag(name, hasArg)}`;
+      colored = `${formatOptionFlag(alias, hasArg)}, ${formatOptionFlag(name, hasArg)}`;
     } else {
-      s += formatOptionFlag(name, hasArg);
+      label = optionFlag(name, hasArg);
+      colored = formatOptionFlag(name, hasArg);
     }
+    rows.push({label, colored, synopsis});
+  }
 
-    if (synopsis) s += `   ${synopsis}`;
-    s += '\n';
+  if (!rows.length) return '';
+  const width = Math.max(...rows.map(r => r.label.length));
+  let s = '';
+  for (const {label, colored, synopsis} of rows) {
+    s += indent + colored + ' '.repeat(width - label.length + 4) + synopsis + '\n';
   }
   return s;
 }
@@ -143,6 +158,12 @@ function formatCommandUsage(arg0, parentPath, name, commandOptDesc) {
   if (commandOptDesc.synopsis) {
     s += `    ${commandOptDesc.synopsis}\n`;
   }
+
+  // Per-arg and per-option descriptions, indented under the command (the
+  // top-level args:/options: sections only cover a single-function CLI).
+  const detail = formatDetailRows(commandOptDesc.positional, commandOptDesc.options, '    ');
+  if (detail) s += '\n' + detail;
+
   s += '\n';
 
   return s;
