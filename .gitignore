@@ -1,4 +1,5 @@
 package-lock.json
 node_modules
 .vscode
-examples-ts/dist
+examples/ts/dist
+examples/prettier/gen
