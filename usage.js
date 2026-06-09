@@ -14,6 +14,11 @@ module.exports = function usage({optDesc, error, command, commandPath, isHelp}) 
   console.assert(arg0);
   let s = '';
 
+  // When a command path was navigated, the body describes that command (its
+  // synopsis, args, options, and — for a group — its own sub-commands), not
+  // the top-level descriptor. arg0 only lives on the top-level optDesc.
+  const target = command ? command.optDesc : optDesc;
+
   if (error && error !== true && !isHelp) {
     if (!error.startsWith('error:')) {
       s += theme.error('error:') + ' ' + pc.red(error);
@@ -23,27 +28,27 @@ module.exports = function usage({optDesc, error, command, commandPath, isHelp}) 
     s += '\n';
   }
 
-  s += theme.label('usage:') + ' ' + formatUsageLine(arg0, optDesc, command, commandPath);
+  s += theme.label('usage:') + ' ' + formatUsageLine(arg0, target, command, commandPath);
   s += '\n\n';
 
-  if (optDesc.synopsis) {
-    s += '  ' + optDesc.synopsis + '\n\n';
+  if (target.synopsis) {
+    s += '  ' + target.synopsis + '\n\n';
   }
 
-  const positionalSynopsis = formatDetailRows(optDesc.positional, {}, '  ');
+  const positionalSynopsis = formatDetailRows(target.positional, {}, '  ');
   if (positionalSynopsis) {
     s += theme.label('args:') + '\n' + positionalSynopsis + '\n';
   }
 
-  const optionSynopsis = formatDetailRows([], optDesc.options, '  ');
+  const optionSynopsis = formatDetailRows([], target.options, '  ');
   if (optionSynopsis) {
     s += theme.label('options:') + '\n' + optionSynopsis + '\n';
   }
 
-  if (optDesc.commands) {
+  if (target.commands) {
     s += theme.label('commands:') + '\n\n';
     const cmdPathArray = commandPath || [];
-    for (let {name, optDesc: commandOptDesc} of Object.values(optDesc.commands)) {
+    for (let {name, optDesc: commandOptDesc} of Object.values(target.commands)) {
       s += formatCommandUsage(arg0, cmdPathArray, name, commandOptDesc);
     }
     s += '\n';
@@ -56,7 +61,6 @@ function formatUsageLine(arg0, optDesc, command, commandPath) {
   let s = basename(arg0);
 
   if (command) {
-    optDesc = command.optDesc;
     s += " " + (commandPath && commandPath.length ? commandPath.join(' ') : command.name);
   }
 
@@ -148,8 +152,20 @@ function formatDetailRows(positional, options, indent) {
 }
 
 function formatCommandUsage(arg0, parentPath, name, commandOptDesc) {
-  const cmdPath = parentPath && parentPath.length ? parentPath.map(p => theme.command(p)).join(' ') + ' ' : '';
-  let s = `  ${cmdPath}${theme.command(name)}`;
+  const path = (parentPath || []).concat(name);
+
+  // A group has no handler of its own; recurse so every leaf sub-command is
+  // listed with its full path (eg `remote add`, `remote remove`) instead of a
+  // useless `remote command` line.
+  if (commandOptDesc.commands) {
+    let s = '';
+    for (let {name: childName, optDesc: childOptDesc} of Object.values(commandOptDesc.commands)) {
+      s += formatCommandUsage(arg0, path, childName, childOptDesc);
+    }
+    return s;
+  }
+
+  let s = `  ${path.map(p => theme.command(p)).join(' ')}`;
 
   s += formatPositionals(commandOptDesc.positional);
   s += formatOptionsInline(commandOptDesc.options);
