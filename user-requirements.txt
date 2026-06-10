@@ -1,0 +1,74 @@
+User requirements log — fncli help/usage work
+==============================================
+Raw requests captured during development, roughly in order. Not polished
+documentation (see Formatting.md for that); kept for review during the
+process. [done] marks implemented items.
+
+Initial observations (from gumwagon output)
+- Bad formatting when synopses are more than one line. [done — parser bug
+  for // continuation lines still open; full mode renders multi-line cleanly]
+- We need a plan when options or args are long. [done — snip/collapse/wrap]
+- The style of help output should be choosable. [partially — two fixed
+  styles: terse on error, full on --help; no user-facing style option yet]
+- We can list "command --help    Display more help". [done]
+- We can make the help option take parameters. [open]
+- Add such "test cases" to examples. [done — examples/js/help-stress.js]
+
+Detail-row layout
+- Put the 26 and '<value>' at top as consts for tuning. [done]
+- When the label limit is exceeded: `label` newline, indent + 4, synopsis.
+  [done]
+- If the synopsis for an option/arg is multiline, indent and put on next
+  line (same layout as long labels). [done]
+
+Trimming rules
+- When options in a subcommand line are very long, show as [options], then
+  always display the options below (not just those with a comment). [done]
+- When a synopsis on an arg/command is long, snip it and display a bold
+  [...] at the end. Multi-line counts as long. [done]
+- Snip the command synopsis at three lines. [done]
+- If anything is snipped, display a '--help' option. [done]
+- Trimmed output must always advertise --help — including the [options]
+  collapse, not just [...] snips. [done]
+- Not `command --help` at the bottom: --help should be one of the options
+  listed under each command, and only when that command's entry has been
+  abbreviated. [done — replaced the bottom pseudo-entry]
+- Trim at the edge of the window (terminal width, COLUMNS, fallback 80).
+  [done]
+- If trimming for lines (lines dropped), put the [...] on the next line
+  instead of appending it. [done]
+- Correction: an [options] collapse alone is NOT trimming — every option is
+  still listed below, nothing hidden, so no --help row for it. Only [...]
+  snips advertise --help. [done — supersedes the collapse part above]
+- Use 80 chars if the output file is not a tty (measure the stream actually
+  written to; $COLUMNS overrides). [done]
+- `cmd sub --help` prints everything, so don't list -h/--help there at all.
+  [done — --help only appears as a snip advertisement on the terse path]
+
+Streams / conventions
+- Fix the stdout issue only: --help to stdout (exit 0), usage errors to
+  stderr (exit 2) — the conventional split. [done]
+
+--help behavior
+- bbot checklist --help: --help must work after a sub-command. [done]
+- The explicit --help view should show full text (no snipping, wrap long
+  prose) — "Display more help" must be honest. [done]
+- The YAML formatting got jacked (indented docstring example flattened and
+  re-wrapped): fix the indenting; preformatted blocks keep indentation and
+  blank lines. Add to stress example. [done]
+- bbot --help: the commands listing is too long when a command has a big
+  docstring — trim the listing even under --help and show the --help hint;
+  full text belongs to `cli <command> --help`. [done]
+
+Docs / API
+- Write Formatting.md describing the formatting so far, succinctly. [done]
+- Modes: confirmed just FULL and trimmed/terse; "subcommand" is the target
+  axis, not a third mode. [done — documented]
+- A synopsis for a whole command group: fncli({synopsis, ...}), works at
+  any nesting level. [done]
+
+Open items
+- Parser: a synopsis comment spanning two // lines mis-attributes the
+  second line to the first positional arg (see `analyze` in help-stress).
+- Help option taking parameters (e.g. --help <topic>).
+- User-choosable help style beyond the terse/full pair.

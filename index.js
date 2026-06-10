@@ -25,8 +25,7 @@ function parseAndRun(argv, commands, config) {
   const opts = parseSignature(commands);
   opts.arg0 = arg0;
   if (config.help) {
-    opts.options.h = {name: 'help', alias: 'h', hasArg: false, synopsis: 'Prints this message'};
-    opts.options.help = opts.options.h;
+    addHelpOption(opts);
   }
   const decoded = decodeArgs(opts, args);
   const isHelpRequested = config.help && decoded.optionValues.help;
@@ -34,14 +33,36 @@ function parseAndRun(argv, commands, config) {
     decoded.error = true;
   }
   if (decoded.error) {
-    if (!isHelpRequested) {
+    const text = usage({...decoded, isHelp: isHelpRequested});
+    if (isHelpRequested) {
+      // Requested help is not an error: print to stdout (pipeable), exit 0.
+      console.log(text);
+    } else {
       process.exitCode = 2;
+      console.error(text);
     }
-    console.error(usage({...decoded, isHelp: isHelpRequested}));
   } else {
     const func = getHandler(commands, decoded.commandPath);
     applyFunc(decoded, func);
   }
+}
+
+// Register --help on the top-level descriptor and every (nested) command, so
+// `cmd sub --help` decodes after the option context switches to the
+// sub-command. User-defined help/h options are left alone.
+function addHelpOption(optDesc) {
+  if (optDesc.commands) {
+    for (let name in optDesc.commands) {
+      addHelpOption(optDesc.commands[name].optDesc);
+    }
+  }
+  if (optDesc.options.help) return;
+  const help = {name: 'help', hasArg: false, synopsis: 'Prints this message'};
+  if (!optDesc.options.h) {
+    help.alias = 'h';
+    optDesc.options.h = help;
+  }
+  optDesc.options.help = help;
 }
 
 function getHandler(commands, commandPath) {

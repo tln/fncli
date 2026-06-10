@@ -1,15 +1,17 @@
 const assert = require('assert');
 describe('fncli', function () {
-  let errs = [], result = null;
+  let errs = [], outs = [], result = null;
   function subject(fn, args, config={}) {
     let fncli = require('../index');
-    let orig = console.error;
-    errs = []; result = null;
+    let origError = console.error, origLog = console.log;
+    errs = []; outs = []; result = null;
     console.error = (e) => errs.push(e);
+    console.log = (e) => outs.push(e);
     try {
       fncli(fn, {...config, argv: ['node', 'script.js'].concat(args)});
     } finally {
-      console.error = orig;
+      console.error = origError;
+      console.log = origLog;
     }
   }
 
@@ -159,6 +161,25 @@ describe('fncli', function () {
       assert(errs[0].match(/Command not found/m), errs);
     });
   });
+  describe('group synopsis', function () {
+    let commands = {
+      synopsis: 'Tool for doing things.',
+      sub: {
+        synopsis: 'Nested group synopsis.',
+        a() {}
+      },
+      b() {}
+    };
+    it('shows the top-level synopsis and does not list it as a command', function () {
+      subject(commands, []);
+      assert(errs[0].match(/Tool for doing things\./), errs);
+      assert(!errs[0].match(/^\s+synopsis\b/m), errs);
+    });
+    it('shows a nested group synopsis when the group is the target', function () {
+      subject(commands, ['sub']);
+      assert(errs[0].match(/Nested group synopsis\./), errs);
+    });
+  });
   describe('handles camelCase <=> kebab case correctly', function () {
     let fn = (theParam, {theOption, O=false}) => result = [theParam, theOption, O];
     it('parses camelCase option', function () {
@@ -203,19 +224,92 @@ describe('fncli', function () {
       let fn = (y='1') => {};
       subject(fn, ['--help'], {help: true});
       // --help prints the usage (no error prefix), including the params.
-      assert(/^usage:/.test(errs.join('\n')), errs);
-      assert(/\[y\]/.test(errs.join('\n')), errs);
+      assert(/^usage:/.test(outs.join('\n')), outs);
+      assert(/\[y\]/.test(outs.join('\n')), outs);
+    });
+    it('prints help to stdout, not stderr', function () {
+      let fn = (y='1') => {};
+      subject(fn, ['--help'], {help: true});
+      assert(outs.length, 'expected help on stdout');
+      assert(errs.length === 0, errs);
     });
     it('does not chide user --help is passed', function () {
       // ie, the usage starts with usage:
       let x = 0, fn = (y) => x += +y;
       subject(fn, ['--help'], {help: true});
-      assert(errs.join('\n').startsWith('usage: '), errs);
+      assert(outs.join('\n').startsWith('usage: '), outs);
     });
     it('shows the subcommand options when appropriate', function () {
       let commands = {subcommand({x=true}) {}, b() {}};
       subject(commands, ['--help', 'subcommand'], {help: true});
-      assert(errs.join('\n').match(/^usage: .* subcommand/), errs);
+      assert(outs.join('\n').match(/^usage: .* subcommand/), outs);
+    });
+    it('recognizes --help after a sub-command', function () {
+      let commands = {subcommand(required, {x=true}) {}, b() {}};
+      subject(commands, ['subcommand', '--help'], {help: true});
+      assert(errs.length === 0, errs);
+      assert(outs.join('\n').match(/^usage: .* subcommand/), outs);
+      assert(!/error:/.test(outs.join('\n')), outs);
+    });
+    it('shows full descriptions under --help instead of snipping', function () {
+      let fn = (
+        y // A very long description that goes well past the snipping width so it would normally be cut off with a marker
+      ) => {};
+      subject(fn, [], {help: true});
+      assert(/\[\.\.\.\]/.test(errs.join('\n')), errs);
+      subject(fn, ['--help', 'y'], {help: true});
+      let help = outs.join('\n');
+      assert(!/\[\.\.\.\]/.test(help), help);
+      // Long text wraps onto a continuation line rather than being cut.
+      assert(/normally be cut/.test(help), help);
+      // Full output is already complete, so --help is not listed.
+      assert(!/--help/.test(help), help);
+    });
+    it('does not advertise --help for an [options] collapse alone', function () {
+      // The inline options overflow and collapse, but every option is still
+      // listed below — nothing is hidden, so no --help row.
+      let fn = (required, {alpha, bravo, charlie, delta, echo}) => {};
+      subject(fn, [], {help: true});
+      let err = errs.join('\n');
+      assert(/\[options\]/.test(err), err);
+      assert(/--echo/.test(err), err);
+      assert(!/Display more help/.test(err), err);
+    });
+    it('keeps the commands listing trimmed under --help', function () {
+      let commands = {
+        long( // This command synopsis is extremely long and rambles on far far beyond the configured synopsis width so it must be snipped in listings
+          x) {},
+        b() {}
+      };
+      subject(commands, ['--help'], {help: true});
+      let help = outs.join('\n');
+      assert(/\[\.\.\.\]/.test(help), help);
+      // The trimmed command lists --help among its own options; the
+      // untrimmed sibling does not.
+      assert(/--help\s+Display more help/.test(help), help);
+      assert(help.indexOf('Display more help') > help.indexOf('long'), help);
+      assert(!/b[\s\S]*Display more help[\s\S]*$/.test(help.slice(help.indexOf('\n  b'))), help);
+      // The full text still shows when that command is the target.
+      subject(commands, ['--help', 'long'], {help: true});
+      help = outs.join('\n');
+      assert(!/\[\.\.\.\]/.test(help), help);
+      assert(/snipped in listings/.test(help), help);
+    });
+    it('preserves preformatted indentation under --help', function () {
+      let fn = (
+        y /* Prose explaining the file format,
+             which continues on a second line.
+
+               example: value
+               - item */
+      ) => {};
+      subject(fn, ['--help', 'x'], {help: true});
+      let help = outs.join('\n');
+      // Blank line and the example's relative indent survive.
+      assert(/\n(\s+)example: value\n\1- item/.test(help), help);
+      const exampleIndent = help.match(/\n(\s*)example: value/)[1].length;
+      const proseIndent = help.match(/\n(\s*)which continues/)[1].length;
+      assert(exampleIndent > proseIndent, help);
     });
   });
 

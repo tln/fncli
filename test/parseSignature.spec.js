@@ -166,6 +166,7 @@ describe('parseSignature commands', function () {
       b(host, port=0, {verbose=false, module}) {}
     });
     assert.deepEqual(result, {
+      synopsis: null,
       optionParamIndex: null,
       options: {},
       positional: [{name: 'command', required: true}],
@@ -202,6 +203,7 @@ describe('parseSignature commands', function () {
       status() {}
     });
     assert.deepEqual(result, {
+      synopsis: null,
       optionParamIndex: null,
       options: {},
       positional: [{name: 'command', required: true}],
@@ -209,6 +211,7 @@ describe('parseSignature commands', function () {
         secrets: {
           name: 'secrets',
           optDesc: {
+            synopsis: null,
             optionParamIndex: null,
             options: {},
             positional: [{name: 'command', required: true}],

@@ -8,13 +8,21 @@ module.exports = function parseSignatures(handlers) {
   if (typeof handlers === 'function') {
       return parseSignature(handlers);
   }
-  let commands = {};
+  let commands = {}, synopsis = null;
   for (let name in handlers) {
+    // A string-valued `synopsis` key describes the group itself (eg
+    // fncli({synopsis: '...', ...commands})); it is not a command. Works at
+    // any nesting level.
+    if (name === 'synopsis' && typeof handlers[name] === 'string') {
+      synopsis = handlers[name];
+      continue;
+    }
     // Plain-object values are nested sub-command groups; recurse.
     let optDesc = parseSignatures(handlers[name]);
     commands[name] = {name, optDesc};
   }
   return {
+    synopsis,
     optionParamIndex: null,
     options: {},
     positional: [{name: 'command', required: true}],

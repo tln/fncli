@@ -1,18 +1,55 @@
 const {basename} = require('path');
 const pc = require('picocolors');
 
+// Labels longer than this don't widen the aligned description column; the
+// description drops to its own line below the label instead.
+const MAX_LABEL_WIDTH = 26;
+// Placeholder shown for an option's argument, eg --format=<value>.
+const VALUE_PLACEHOLDER = '<value>';
+// Inline options on a usage/command line longer than this collapse to
+// [options], with every option listed below instead.
+const MAX_INLINE_OPTIONS_WIDTH = 40;
+// Full-mode prose is word-wrapped to this width. (Terse-mode trims cut at
+// the window edge instead — see windowWidth.)
+const MAX_SYNOPSIS_WIDTH = 72;
+// Command synopses are snipped to this many lines.
+const MAX_SYNOPSIS_LINES = 3;
+// Window width when the output stream is not a TTY (piped/redirected) and
+// COLUMNS is not set.
+const DEFAULT_WINDOW_WIDTH = 80;
+
+// Width of the stream this usage text will be written to: COLUMNS overrides,
+// a TTY reports its width, anything else (a pipe, a file) gets the default.
+function windowWidth(stream) {
+  const cols = parseInt(process.env.COLUMNS, 10);
+  if (cols) return cols;
+  return (stream.isTTY && stream.columns) || DEFAULT_WINDOW_WIDTH;
+}
+
 const theme = {
   error: text => pc.bold(pc.red(text)),
   label: text => pc.bold(text),
   command: text => pc.cyan(text),
   option: text => pc.yellow(text),
   argument: text => pc.green(text),
+  more: text => pc.bold(text),
 };
 
 module.exports = function usage({optDesc, error, command, commandPath, isHelp}) {
   let {arg0} = optDesc;
   console.assert(arg0);
   let s = '';
+
+  // Rendering context: `snipped` records that some text was cut (so we
+  // advertise the normally-hidden --help), `collapsed` that inline options
+  // were folded into [options] (so every option is listed below). `full` is
+  // the explicit-help mode: nothing is snipped — long text wraps instead.
+  // Since full output is already complete, --help is not listed there.
+  const helpEnabled = !!optDesc.options.help;
+  // Help goes to stdout, errors to stderr (see index.js) — measure the
+  // stream the text will actually be written to.
+  const width = windowWidth(isHelp ? process.stdout : process.stderr);
+  const ctx = {snipped: false, collapsed: false, full: !!isHelp, helpEnabled, width};
 
   // When a command path was navigated, the body describes that command (its
   // synopsis, args, options, and — for a group — its own sub-commands), not
@@ -28,36 +65,57 @@ module.exports = function usage({optDesc, error, command, commandPath, isHelp}) 
     s += '\n';
   }
 
-  s += theme.label('usage:') + ' ' + formatUsageLine(arg0, target, command, commandPath);
+  s += theme.label('usage:') + ' ' + formatUsageLine(arg0, target, command, commandPath, ctx);
   s += '\n\n';
 
+  let synopsisSection = '';
   if (target.synopsis) {
-    s += '  ' + target.synopsis + '\n\n';
+    for (const line of snipSynopsisLines(target.synopsis, ctx, 2)) {
+      synopsisSection += ('  ' + line).trimEnd() + '\n';
+    }
+    synopsisSection += '\n';
   }
 
-  const positionalSynopsis = formatDetailRows(target.positional, {}, '  ');
+  const positionalSynopsis = formatDetailRows(target.positional, {}, '  ', {ctx});
+
+  let commandsSection = '';
+  if (target.commands) {
+    // The commands listing is always rendered terse — even under --help, a
+    // long per-command docstring belongs to `cmd <command> --help`, not the
+    // listing. Each command tracks its own trims and advertises --help in
+    // its detail rows; the listing does not affect the target's ctx.
+    const listCtx = {snipped: false, collapsed: false, full: false, helpEnabled, width};
+    const cmdPathArray = commandPath || [];
+    for (let {name, optDesc: commandOptDesc} of Object.values(target.commands)) {
+      commandsSection += formatCommandUsage(arg0, cmdPathArray, name, commandOptDesc, listCtx);
+    }
+  }
+
+  let optionSynopsis = formatDetailRows([], target.options, '  ', {ctx, includeAll: ctx.collapsed});
+  if (!ctx.full && ctx.snipped && helpEnabled) {
+    // Snipped output advertises --help. (An [options] collapse alone does
+    // not — every option is still listed below, so nothing is hidden.) A
+    // snip may happen while rendering the option rows themselves, so the
+    // --help row can only be decided after a first pass; re-render with it.
+    // (Full mode already lists --help via showHelp.)
+    optionSynopsis = formatDetailRows([], target.options, '  ', {ctx, includeAll: ctx.collapsed, helpRow: true});
+  }
+
+  s += synopsisSection;
   if (positionalSynopsis) {
     s += theme.label('args:') + '\n' + positionalSynopsis + '\n';
   }
-
-  const optionSynopsis = formatDetailRows([], target.options, '  ');
   if (optionSynopsis) {
     s += theme.label('options:') + '\n' + optionSynopsis + '\n';
   }
-
   if (target.commands) {
-    s += theme.label('commands:') + '\n\n';
-    const cmdPathArray = commandPath || [];
-    for (let {name, optDesc: commandOptDesc} of Object.values(target.commands)) {
-      s += formatCommandUsage(arg0, cmdPathArray, name, commandOptDesc);
-    }
-    s += '\n';
+    s += theme.label('commands:') + '\n\n' + commandsSection + '\n';
   }
 
   return s;
 };
 
-function formatUsageLine(arg0, optDesc, command, commandPath) {
+function formatUsageLine(arg0, optDesc, command, commandPath, ctx) {
   let s = basename(arg0);
 
   if (command) {
@@ -65,7 +123,7 @@ function formatUsageLine(arg0, optDesc, command, commandPath) {
   }
 
   s += formatPositionals(optDesc.positional);
-  s += formatOptionsInline(optDesc.options);
+  s += formatOptionsInline(optDesc.options, ctx);
 
   return s;
 }
@@ -84,7 +142,7 @@ function formatPositionals(positional) {
   return s;
 }
 
-function formatOptionsInline(options) {
+function inlineOptionText(options, fmt) {
   let s = '';
   const optKeys = Object.entries(options)
     .filter(([key, opt]) => key === opt.name && opt.name !== 'help')
@@ -93,30 +151,134 @@ function formatOptionsInline(options) {
   for (let {name, alias, hasArg} of optKeys) {
     s += ' ';
     if (alias) {
-      const shortForm = formatOptionFlag(alias, hasArg);
-      const longForm = formatOptionFlag(name, hasArg);
-      s += `[${shortForm}|${longForm}]`;
+      s += `[${fmt(alias, hasArg)}|${fmt(name, hasArg)}]`;
     } else {
-      s += `[${formatOptionFlag(name, hasArg)}]`;
+      s += `[${fmt(name, hasArg)}]`;
     }
   }
   return s;
 }
 
+function formatOptionsInline(options, ctx) {
+  // Measure with the uncolored formatter — ANSI codes would skew the length.
+  const plain = inlineOptionText(options, optionFlag);
+  if (plain.length > MAX_INLINE_OPTIONS_WIDTH) {
+    ctx.collapsed = true;
+    return ' [' + theme.option('options') + ']';
+  }
+  return inlineOptionText(options, formatOptionFlag);
+}
+
 function optionFlag(name, hasArg) {
   name = camelToKebabCase(name);
   const prefix = name.length > 1 ? '--' : '-';
-  return `${prefix}${name}${hasArg ? '=<value>' : ''}`;
+  return `${prefix}${name}${hasArg ? `=${VALUE_PLACEHOLDER}` : ''}`;
 }
 
 function formatOptionFlag(name, hasArg) {
   return theme.option(optionFlag(name, hasArg));
 }
 
+// Cut a line to `limit` columns, backing up to a word boundary when one
+// exists within the cut.
+function snipAtWord(line, limit) {
+  const cut = line.slice(0, limit);
+  return (cut.replace(/\s+\S*$/, '') || cut).trimEnd();
+}
+
+// Columns available for text starting at startCol, with a sanity floor.
+function availWidth(ctx, startCol) {
+  return Math.max(ctx.width - startCol, 20);
+}
+
+// Full-mode text: dedent (the common indent of the lines after the first),
+// keep blank lines and relative indentation. After dedenting, column-0 lines
+// are prose and word-wrap; still-indented lines are preformatted (eg a YAML
+// example in a docstring) and pass through untouched.
+function fullTextLines(synopsis) {
+  let lines = synopsis.split('\n').map(l => l.replace(/\s+$/, ''));
+  const rest = lines.slice(1).filter(l => l);
+  const minIndent = rest.length ? Math.min(...rest.map(l => l.match(/^\s*/)[0].length)) : 0;
+  lines = [lines[0].replace(/^\s+/, ''), ...lines.slice(1).map(l => l.slice(minIndent))];
+  while (lines.length && !lines[0]) lines.shift();
+  while (lines.length && !lines[lines.length - 1]) lines.pop();
+  return lines.flatMap(line => {
+    if (!line) return [''];
+    if (/^\s/.test(line)) return [line];
+    return wrapLine(line);
+  });
+}
+
+// Greedy word-wrap of a single line to MAX_SYNOPSIS_WIDTH.
+function wrapLine(line) {
+  const out = [];
+  let cur = '';
+  for (const word of line.split(/\s+/)) {
+    if (cur && cur.length + 1 + word.length > MAX_SYNOPSIS_WIDTH) {
+      out.push(cur);
+      cur = word;
+    } else {
+      cur = cur ? cur + ' ' + word : word;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+// Synopsis lines for an arg/option detail row, starting at startCol.
+// Snip mode: only the first source line survives; a pure width-trim ends
+// with ' [...]' at the window edge, while a line-trim (multi-line source)
+// puts the bold [...] on its own next line. Full mode: every line,
+// word-wrapped.
+function synopsisRowLines(synopsis, ctx, startCol = 0) {
+  if (!synopsis) return [];
+  if (ctx.full) {
+    return fullTextLines(synopsis);
+  }
+  const avail = availWidth(ctx, startCol);
+  const srcLines = synopsis.split('\n');
+  let line = srcLines[0].trim();
+  const dropped = srcLines.length > 1;
+  if (line.length > avail) {
+    ctx.snipped = true;
+    // ' [...]' is 6 columns; reserve them only when it lands on this line.
+    line = dropped ? snipAtWord(line, avail) : snipAtWord(line, avail - 6) + ' ' + theme.more('[...]');
+  }
+  if (dropped) {
+    ctx.snipped = true;
+    return [line, theme.more('[...]')];
+  }
+  return [line];
+}
+
+// Command synopsis, starting at startCol. Snip mode: up to
+// MAX_SYNOPSIS_LINES lines, width-trimmed at the window edge; dropped lines
+// put a bold [...] on its own next line. Full mode: every line, word-wrapped.
+function snipSynopsisLines(synopsis, ctx, startCol = 0) {
+  if (ctx.full) {
+    return fullTextLines(synopsis);
+  }
+  const avail = availWidth(ctx, startCol);
+  let lines = synopsis.split('\n').map(l => l.trim());
+  const dropped = lines.length > MAX_SYNOPSIS_LINES;
+  lines = lines.slice(0, MAX_SYNOPSIS_LINES).map(line => {
+    if (line.length <= avail) return line;
+    ctx.snipped = true;
+    return dropped ? snipAtWord(line, avail) : snipAtWord(line, avail - 6) + ' ' + theme.more('[...]');
+  });
+  if (dropped) {
+    ctx.snipped = true;
+    lines.push(theme.more('[...]'));
+  }
+  return lines;
+}
+
 // Build aligned "label    synopsis" rows for positionals and/or options.
 // Labels are colored (args green, options yellow); synopses line up in a
 // column 4 spaces past the longest label. `indent` prefixes every row.
-function formatDetailRows(positional, options, indent) {
+// `includeAll` lists options even without a synopsis (used when the inline
+// options collapsed to [options]); `helpRow` appends the --help row.
+function formatDetailRows(positional, options, indent, {ctx = {snipped: false, full: false, width: DEFAULT_WINDOW_WIDTH}, includeAll = false, helpRow = false} = {}) {
   const rows = [];
 
   for (let {name, rest, required, synopsis} of positional) {
@@ -128,9 +290,12 @@ function formatDetailRows(positional, options, indent) {
   }
 
   for (let [key, {name, alias, hasArg, synopsis}] of Object.entries(options)) {
-    // Skip alias entries (rendered with their canonical name), the implicit
-    // help flag, and options without a description.
-    if (key !== name || name === 'help' || !synopsis) continue;
+    // Skip alias entries (rendered with their canonical name) and the
+    // implicit help flag (advertised only via helpRow, when something was
+    // snipped); options without a description only appear when includeAll
+    // is set.
+    if (key !== name || name === 'help') continue;
+    if (!synopsis && !includeAll) continue;
     let label, colored;
     if (alias) {
       label = `${optionFlag(alias, hasArg)}, ${optionFlag(name, hasArg)}`;
@@ -142,16 +307,52 @@ function formatDetailRows(positional, options, indent) {
     rows.push({label, colored, synopsis});
   }
 
+  if (helpRow) {
+    rows.push({label: '--help', colored: theme.option('--help'), synopsis: 'Display more help'});
+  }
+
   if (!rows.length) return '';
-  const width = Math.max(...rows.map(r => r.label.length));
+  // Rows with an over-long label or a multi-line description render as
+  // "label\n<indent + 4>description lines" instead of joining the aligned
+  // column, and don't count toward the column width — so one wide flag or
+  // long description doesn't push every other row off-screen.
+  //
+  // Layout is decided before snipping: full mode renders its lines now (no
+  // snipping involved), and a terse row with a multi-line source always
+  // takes the own-line layout — so each row's start column is known when
+  // the window-edge trim is applied.
+  for (const r of rows) {
+    if (ctx.full) {
+      r.lines = synopsisRowLines(r.synopsis, ctx);
+      r.ownLine = r.label.length > MAX_LABEL_WIDTH || r.lines.length > 1;
+    } else {
+      r.ownLine = r.label.length > MAX_LABEL_WIDTH || /\n/.test(r.synopsis || '');
+    }
+  }
+  const fitting = rows.filter(r => !r.ownLine);
+  const width = fitting.length ? Math.max(...fitting.map(r => r.label.length)) : 0;
+  if (!ctx.full) {
+    for (const r of rows) {
+      const startCol = indent.length + (r.ownLine ? 4 : width + 4);
+      r.lines = synopsisRowLines(r.synopsis, ctx, startCol);
+    }
+  }
   let s = '';
-  for (const {label, colored, synopsis} of rows) {
-    s += indent + colored + ' '.repeat(width - label.length + 4) + synopsis + '\n';
+  for (const row of rows) {
+    const {label, colored, lines} = row;
+    if (row.ownLine) {
+      s += indent + colored + '\n';
+      for (const line of lines) {
+        s += (indent + '    ' + line).trimEnd() + '\n';
+      }
+    } else {
+      s += (indent + colored + ' '.repeat(width - label.length + 4) + (lines[0] || '')).trimEnd() + '\n';
+    }
   }
   return s;
 }
 
-function formatCommandUsage(arg0, parentPath, name, commandOptDesc) {
+function formatCommandUsage(arg0, parentPath, name, commandOptDesc, ctx) {
   const path = (parentPath || []).concat(name);
 
   // A group has no handler of its own; recurse so every leaf sub-command is
@@ -160,24 +361,35 @@ function formatCommandUsage(arg0, parentPath, name, commandOptDesc) {
   if (commandOptDesc.commands) {
     let s = '';
     for (let {name: childName, optDesc: childOptDesc} of Object.values(commandOptDesc.commands)) {
-      s += formatCommandUsage(arg0, path, childName, childOptDesc);
+      s += formatCommandUsage(arg0, path, childName, childOptDesc, ctx);
     }
     return s;
   }
 
   let s = `  ${path.map(p => theme.command(p)).join(' ')}`;
 
+  // Snips are tracked per command: when this command's entry was abbreviated
+  // with [...], --help is listed among its own options as the way to the
+  // full text. An [options] collapse alone doesn't count — every option is
+  // still listed below.
+  const cmdCtx = {snipped: false, collapsed: false, full: ctx.full, helpEnabled: ctx.helpEnabled, width: ctx.width};
+
   s += formatPositionals(commandOptDesc.positional);
-  s += formatOptionsInline(commandOptDesc.options);
+  s += formatOptionsInline(commandOptDesc.options, cmdCtx);
   s += '\n';
 
   if (commandOptDesc.synopsis) {
-    s += `    ${commandOptDesc.synopsis}\n`;
+    for (const line of snipSynopsisLines(commandOptDesc.synopsis, cmdCtx, 4)) {
+      s += ('    ' + line).trimEnd() + '\n';
+    }
   }
 
   // Per-arg and per-option descriptions, indented under the command (the
   // top-level args:/options: sections only cover a single-function CLI).
-  const detail = formatDetailRows(commandOptDesc.positional, commandOptDesc.options, '    ');
+  let detail = formatDetailRows(commandOptDesc.positional, commandOptDesc.options, '    ', {ctx: cmdCtx, includeAll: cmdCtx.collapsed});
+  if (cmdCtx.snipped && ctx.helpEnabled) {
+    detail = formatDetailRows(commandOptDesc.positional, commandOptDesc.options, '    ', {ctx: cmdCtx, includeAll: cmdCtx.collapsed, helpRow: true});
+  }
   if (detail) s += '\n' + detail;
 
   s += '\n';
@@ -189,4 +401,3 @@ function camelToKebabCase(str) {
   if (!str || str.length < 3) return str;
   return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
 }
-  
