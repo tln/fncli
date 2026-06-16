@@ -1,10 +1,9 @@
 examples
-examples-ts
 test
 tools
 .vscode
-TypeScript.md
-TodoBeforeRelease.md
-Roadmap.md
+.claude
 bad_output.txt
 package-lock.json
+docs
+.mocharc.json
