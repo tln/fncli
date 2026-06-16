@@ -1,9 +1,8 @@
 // Stress cases for help/usage formatting. Run with no args (or --help) and
 // eyeball the output. Each command exercises one case:
 //
-//   analyze     synopsis comment spans two lines — the second line is
-//               mis-attributed to the first positional arg (parser bug),
-//               making that arg's synopsis multi-line, so it gets snipped
+//   analyze     synopsis comment spans two `//` lines — both lines form the
+//               one synopsis (terse mode snips it; --help shows it in full)
 //   thread      block-comment synopsis with four lines — snipped at three
 //               with a bold [...] marker
 //   download    long option labels: each drops its description to the next

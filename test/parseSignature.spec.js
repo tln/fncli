@@ -144,6 +144,27 @@ describe('parseSignature', function () {
       positional: [{name: 'arg', rest: false, required: true, synopsis: null}]
     });
   });
+  it('rejects two options objects', function () {
+    // The second object pattern is not allowed; the index of the first is 1.
+    assert.throws(() => parseSignature((a, {x}={}, {y}={}) => 0), /only one options object/);
+  });
+  it('rejects two options objects when the first is the first parameter', function () {
+    // Regression: the first object sets optionParamIndex to 0, which the
+    // duplicate guard read as "unset" (0 is falsy), so the second slipped through.
+    assert.throws(() => parseSignature(({x}, {y}) => 0), /only one options object/);
+    assert.throws(() => parseSignature(({x}={}, {y}={}) => 0), /only one options object/);
+  });
+  it('joins a two-line // synopsis instead of leaking it onto the first arg', function () {
+    // A synopsis written as two consecutive `//` lines is one synopsis; the
+    // second line must not become the first positional's description.
+    let result = parseSignature(function analyze(
+      // First synopsis line
+      // second synopsis line
+      id // Thread id or message id
+    ) {});
+    assert.equal(result.synopsis, 'First synopsis line\nsecond synopsis line');
+    assert.equal(result.positional[0].synopsis, 'Thread id or message id');
+  });
   it('object pattern with default value and multiple options', function () {
     let result = parseSignature((arg, {opt1, verbose=false}={})=>0);
     assert.deepEqual(result, {

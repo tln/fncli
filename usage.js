@@ -171,8 +171,12 @@ function formatOptionsInline(options, ctx) {
 
 function optionFlag(name, hasArg) {
   name = camelToKebabCase(name);
-  const prefix = name.length > 1 ? '--' : '-';
-  return `${prefix}${name}${hasArg ? `=${VALUE_PLACEHOLDER}` : ''}`;
+  const long = name.length > 1;
+  const prefix = long ? '--' : '-';
+  if (!hasArg) return `${prefix}${name}`;
+  // `=` separates a long option from its value (`--opt=x`); short options take
+  // the value as a following token (`-o x`), matching how the parser reads them.
+  return `${prefix}${name}${long ? '=' : ' '}${VALUE_PLACEHOLDER}`;
 }
 
 function formatOptionFlag(name, hasArg) {

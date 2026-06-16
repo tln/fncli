@@ -101,7 +101,8 @@ describe('fncli', function () {
       assert(errs[0].match(/describe a/m), errs);
       // Should show inline options (new format: long form with short alias)
       assert(/\[--flag\|-f\]/.test(errs[0]), errs);
-      assert(/\[--opt=<value>\|-o=<value>\]/.test(errs[0]), errs);
+      // Short option with an arg renders as `-o <value>` (a space, not `=`).
+      assert(/\[--opt=<value>\|-o <value>\]/.test(errs[0]), errs);
       // Should show the rest parameter
       assert(errs[0].match(/\[z\.\.\.\]/m), errs);
     });
@@ -310,6 +311,25 @@ describe('fncli', function () {
       const exampleIndent = help.match(/\n(\s*)example: value/)[1].length;
       const proseIndent = help.match(/\n(\s*)which continues/)[1].length;
       assert(exampleIndent > proseIndent, help);
+    });
+  });
+
+  describe('short option rendering', function () {
+    it('renders a short option arg as "-o <value>", not "-o=<value>"', function () {
+      // The `=` form is a long-option convention; the parser keeps the `=` as
+      // part of the value for short options, so the help must not advertise it.
+      let fn = (required, {o: out}) => {};
+      subject(fn, []);
+      let err = errs.join('\n');
+      assert(/-o <value>/.test(err), err);
+      assert(!/-o=<value>/.test(err), err);
+    });
+  });
+
+  describe('getHandler', function () {
+    it('throws a descriptive error when a command path is not a function', function () {
+      let {getHandler} = require('../index');
+      assert.throws(() => getHandler({a: {}}, ['a']), /invalid type: object/);
     });
   });
 

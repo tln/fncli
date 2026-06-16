@@ -64,15 +64,20 @@ function parseSignature(fn) {
   // remove comments after start of body
   comments = comments.filter(c => c[1] < node.body.start)
 
-  let firstTimeCalled = true;
-  function setSynopsis(end=source.length) {
-    if (comments.length && result.synopsis == null && comments[0][1] < end) {
-      // first comment is the function synopsis, as long as it starts before the token
-      result.synopsis = comments.shift()[0].trim();
+  // The synopsis is every comment before the first parameter (or before the
+  // body, when there are no params). Consecutive `//` lines arrive as separate
+  // comments, so take all of them and join — otherwise a multi-line synopsis
+  // leaks its later lines onto the first positional arg's description.
+  const firstParamStart = node.params.length ? node.params[0].start : node.body.start;
+  function setSynopsis() {
+    if (result.synopsis != null) return;
+    let ix = comments.findIndex(c => c[1] >= firstParamStart);
+    if (ix === -1) ix = comments.length;
+    if (ix > 0) {
+      result.synopsis = comments.splice(0, ix).map(c => c[0].trim()).join('\n');
     }
   }
   function getCommentUntil(tokenEnd, nextStart=Infinity) {
-      if (firstTimeCalled) firstTimeCalled = setSynopsis(tokenEnd);
       if (!comments.length) return null;
 
       // find the end of the line after tokenEnd
@@ -101,6 +106,8 @@ function parseSignature(fn) {
   function positional({name, required=false, rest=false, end}, nextStart) {
     result.positional.push({name, required, rest, synopsis: getCommentUntil(end, nextStart)});
   }
+  // Claim the synopsis comments before any param consumes a trailing comment.
+  setSynopsis();
   mapNodes(node.params, {
       Identifier({name, end}, nextStart) {
         positional({name, end, required: true}, nextStart);
@@ -112,7 +119,8 @@ function parseSignature(fn) {
         // Handle default values for both identifiers and object patterns
         if (left.type === 'ObjectPattern') {
           // This is an object pattern with a default, e.g., {opt1}={}
-          if (result.optionParamIndex) throw new Error('only one options object allowed');
+          // Compare to null: index 0 (options is the first param) is valid.
+          if (result.optionParamIndex != null) throw new Error('only one options object allowed');
           result.optionParamIndex = result.positional.length;
           mapNodes(left.properties, {
               Property({key: {name}, value: {name: alias, left: valueLeft, right}, end}, nextStart) {
@@ -133,7 +141,7 @@ function parseSignature(fn) {
         }
       },
       ObjectPattern({properties}) {
-          if (result.optionParamIndex) throw new Error('only one options object allowed');
+          if (result.optionParamIndex != null) throw new Error('only one options object allowed');
           result.optionParamIndex = result.positional.length;
           mapNodes(properties, {
               Property({key: {name}, value: {name: alias, left, right}, end}, nextStart) {
@@ -150,9 +158,6 @@ function parseSignature(fn) {
           });
       }
   });
-
-  // If there are no args, the synopsis won't be set yet.
-  setSynopsis();
 
   // warning if unused comments?
   return result;

@@ -72,10 +72,11 @@ function getHandler(commands, commandPath) {
     handler = handler[name];
   }
   if (typeof handler !== 'function') {
-    throw new Error('invalid type:', handler);
+    throw new Error('invalid type: ' + typeof handler);
   }
   return handler;
 }
+module.exports.getHandler = getHandler;
 
 /**
  * Apply the decoded argument result, including printing out usage errors.

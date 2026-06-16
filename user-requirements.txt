@@ -70,5 +70,6 @@ Docs / API
 Open items
 - Parser: a synopsis comment spanning two // lines mis-attributes the
   second line to the first positional arg (see `analyze` in help-stress).
+  [done — synopsis now claims all comments before the first param]
 - Help option taking parameters (e.g. --help <topic>).
 - User-choosable help style beyond the terse/full pair.
