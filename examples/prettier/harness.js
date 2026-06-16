@@ -19,7 +19,7 @@
 // Usage:
 //   node harness.js [file.js ...]
 //
-// With no args it defaults to ../js/*.js and ./cases/*.js.
+// With no args it defaults to ../js/*.js and ../cases/prettier-*.js.
 // To experiment with prettier options, drop a .prettierrc in this directory
 // (prettier auto-discovers it relative to the file it formats in gen/).
 
@@ -46,9 +46,14 @@ function ensureFncliLink() {
 }
 
 function listDefaults() {
-  const dirs = [path.join(EXAMPLES, 'js'), path.join(HERE, 'cases')];
+  // examples/cases also holds standalone bug repros that require('../../index.js');
+  // only the prettier-*.js cases call require('fncli') and belong to this harness.
+  const dirs = [
+    {dir: path.join(EXAMPLES, 'js'), match: (n) => n.endsWith('.js')},
+    {dir: path.join(EXAMPLES, 'cases'), match: (n) => /^prettier-.*\.js$/.test(n)},
+  ];
   const out = [];
-  for (const dir of dirs) {
+  for (const {dir, match} of dirs) {
     let names = [];
     try {
       names = fs.readdirSync(dir);
@@ -56,16 +61,16 @@ function listDefaults() {
       continue;
     }
     for (const n of names.sort()) {
-      if (n.endsWith('.js')) out.push(path.join(dir, n));
+      if (match(n)) out.push(path.join(dir, n));
     }
   }
   return out;
 }
 
-// examples/js/git.js -> "js__git"; examples/prettier/cases/foo.js -> "cases__foo"
+// examples/js/git.js -> "js__git"; examples/cases/prettier-foo.js -> "cases__prettier-foo"
 function flatName(file) {
   const rel = path.relative(EXAMPLES, file).replace(/\.js$/, '');
-  return rel.replace(/^prettier[\/\\]/, '').replace(/[\/\\]/g, '__');
+  return rel.replace(/[\/\\]/g, '__');
 }
 
 function prettier(file) {

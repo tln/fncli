@@ -14,7 +14,7 @@ This harness makes the damage visible.
 node examples/prettier/harness.js [file.js ...]
 ```
 
-With no arguments it processes `../js/*.js` and `./cases/*.js`.
+With no arguments it processes `../js/*.js` and `../cases/prettier-*.js`.
 
 For each input it writes, into the gitignored `gen/` directory:
 
@@ -34,6 +34,6 @@ Drop a `.prettierrc` in this directory and re-run; prettier auto-discovers it
 relative to the files it formats in `gen/`. This is the place to test whether
 any option (or `// prettier-ignore`) preserves fncli's comment placement.
 
-`cases/` holds small hand-written signatures that stress the comment patterns
-fncli depends on. Add more `.js` files there (each must call `fncli`) to cover
-new patterns.
+`../cases/prettier-*.js` are small hand-written signatures that stress the
+comment patterns fncli depends on. Add more `prettier-*.js` files in
+[`../cases/`](../cases) (each must call `fncli`) to cover new patterns.
