@@ -6,7 +6,10 @@
   "types": "index.d.ts",
   "scripts": {
     "test": "mocha -R spec test/*.js",
-    "test:watch": "npm test -- --watch"
+    "test:watch": "npm test -- --watch",
+    "docs:gen": "node tools/gen-readme.js",
+    "docs": "npm run docs:gen && embedme README.md",
+    "docs:check": "npm run docs:gen && embedme --verify README.md && git diff --exit-code examples/readme"
   },
   "keywords": [],
   "author": "tony@lownds.com",
@@ -16,6 +19,7 @@
   },
   "repository": "tln/fncli",
   "devDependencies": {
+    "embedme": "^1.22.1",
     "mocha": "^7.1.0"
   },
   "dependencies": {

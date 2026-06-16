@@ -1,6 +1,10 @@
 examples
 examples-ts
 test
+tools
 .vscode
 TypeScript.md
+TodoBeforeRelease.md
+Roadmap.md
+bad_output.txt
 package-lock.json

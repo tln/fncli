@@ -4,44 +4,51 @@
 
 ## Introduction
 
-```javascript
+<!-- embedme examples/readme/helloworld.js#L4-L8 -->
+```js
 // 1. write function
-function main(name, {greeting="Hello", shout=false}){}
+function main(name, {greeting = "Hello", shout = false}) {}
 
 // 2. call fncli
-fncli(main)
+fncli(main);
 ```
+<!-- embedme examples/readme/helloworld.txt -->
 ```
-usage: script [options] name
-options:
-  --greeting=<value>
-  --shout
+usage: script name [--greeting=<value>] [--shout]
 ```
 
 Function parameters become CLI arguments and options; defaults make them optional. **fncli** parses the CLI arguments, calls your function, and awaits the result.
 
-```javascript
+<!-- embedme examples/readme/git.js#L4-L16 -->
+```js
 // Multiple functions become sub-commands
 function clone(  // Clone the repo
   url  // Repository URL
-){}
-function push({f: force=false}, upstream="origin"){}
-function add({A: all=false}, ...files){}
+) {}
+function push({f: force = false}, upstream = "origin") {}
+function add({A: all = false}, ...files) {}
 
 // Call fncli with object
 fncli({
-  clone, 
-  push, 
-  add, 
-})
+  clone,
+  push,
+  add,
+});
 ```
+<!-- embedme examples/readme/git.txt -->
 ```
 usage: script command
 
 commands:
-  clone        Clone the repo
-  push
-  add
+
+  clone url
+    Clone the repo
+
+    url    Repository URL
+
+  push [upstream] [--force|-f]
+
+  add [files...] [--all|-A]
 ```
 
 Pass objects to make sub-commands. Nested objects make sub-sub-commands (and so on).
@@ -79,7 +86,7 @@ With `tsc`, `target: "ES2017"` or higher and don't enable `removeComments`. Or k
 | `async function`                      | awaited before exit                    |
 |                                       |                                        |
 | `--` in argv                          | stops option parsing                   |
-| `-h` / `--help`                       | added by defult                        |
+| `-h` / `--help`                       | added by default                       |
 
 ## Tips
 

@@ -1,0 +1,12 @@
+usage: script command
+
+commands:
+
+  clone url
+    Clone the repo
+
+    url    Repository URL
+
+  push [upstream] [--force|-f]
+
+  add [files...] [--all|-A]

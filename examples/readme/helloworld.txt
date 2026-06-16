@@ -1,0 +1,1 @@
+usage: script name [--greeting=<value>] [--shout]
