@@ -5,6 +5,7 @@ const DEFAULT_OPTS = {
 const parseSignature = require('./parseSignature');
 const decodeArgs = require('./decodeArgs');
 const usage = require('./usage');
+const completions = require('./completions');
 
 /**
  * fncli - function-based cli scaffold.
@@ -14,7 +15,7 @@ const usage = require('./usage');
 module.exports = function (commands, {argv=process.argv, ...config}={}) {
   config = Object.assign({}, DEFAULT_OPTS, config);
   try {
-    parseAndRun(argv, commands, config);
+    return parseAndRun(argv, commands, config);
   } catch(e) {
     console.error(e);
   }
@@ -26,6 +27,15 @@ function parseAndRun(argv, commands, config) {
   opts.arg0 = arg0;
   if (config.help) {
     addHelpOption(opts);
+  }
+  // Shell completion: built in and on by default. The reserved `completions`
+  // command is routed to completions.js before normal decoding — it prints or
+  // installs the shell stub, and answers the per-TAB runtime request
+  // (`completions v1 -- …`). `opts` is the prepared descriptor fncli itself
+  // runs against (incl. auto --help), so options complete exactly as they
+  // parse. Opt out (freeing the name) with {completions: false}.
+  if (config.completions !== false && args[0] === 'completions') {
+    return completions(args.slice(1), opts, config.completions || {});
   }
   const decoded = decodeArgs(opts, args);
   const isHelpRequested = config.help && decoded.optionValues.help;
