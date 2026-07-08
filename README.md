@@ -88,6 +88,43 @@ With `tsc`, `target: "ES2017"` or higher and don't enable `removeComments`. Or k
 | `--` in argv                          | stops option parsing                   |
 | `-h` / `--help`                       | added by default                       |
 
+## Shell completion
+
+Completion for commands and options works out of the box under a reserved `completions` command. To turn it on for your shell (bash/zsh/fish), add its stub to your startup file:
+
+```
+myapp completions install        # write the stub to the shell's autoload dir
+myapp completions script bash    # or print the stub to eval/source yourself
+```
+
+Complete arguments or options by name with `completions.handlers`. 
+The same arg or option name is completed the same way across all commands.
+
+Completions are often static but can also be (possibly async) functions.
+
+```javascript
+fncli(commands, { 
+  completions: { 
+    handlers: {
+      env: ["dev", "prod"],
+      config: { ext: ["json"] },
+      out: { dirs: true },
+      servers: async () => {
+        return {
+          items: [{value: 'server1', description: 'server1.tln.io'}], // description used by zsh/fish, not bash
+          default: true   // also allow the shell-default (usually files) completion.
+        }
+      }
+    } 
+  } 
+});
+```
+
+Completions are fairly new. Expect the behavior of installation and how the `completions` command gets invoked to change.
+`completions.handlers` should remain supported as-is.
+
+Pass `completions: false` to opt out and free the `completions` command name.
+
 ## Tips
 
 Pass options as a second argument: `fncli(commands, { argv: process.argv, help: true })`.
