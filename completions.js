@@ -99,7 +99,9 @@ function emit(action, shell, ctx, out) {
     return;
   }
   if (action === 'install') {
-    out.write('installed ' + inst.shell + ' completion: ' + inst.install() + '\n');
+    // install() writes the stub, then reports the path (and, when the shell
+    // won't autoload it, the one rc line that fixes it) to `out` itself.
+    inst.install({ out });
   } else {
     out.write(inst.script);
   }
