@@ -302,15 +302,24 @@ describe('fncli completions command', function () {
     assert.ok(/demo completions v1 --/.test(text));
   });
 
-  it('bare `completions` shows help, not a stub', async function () {
-    const out = sink();
-    await fncli(commands, {
-      argv: ['node', 'demo.js', 'completions'],
-      completions: { out },
-    });
-    assert.ok(/usage: demo completions install\|script \[shell\]/.test(out.text()));
-    assert.ok(/eval "\$\(demo completions script bash\)"/.test(out.text()));
-    assert.ok(!/complete -F/.test(out.text()), 'no stub in the help output');
+  it('bare `completions` shows usage listing its sub-commands, not a stub', async function () {
+    // Now a normal command group: a missing sub-command is the usual usage
+    // error, listing install/script (the internal v1 stays hidden). Errors go
+    // to stderr, not the completions `out`.
+    const errs = [];
+    const origError = console.error;
+    console.error = (e) => errs.push(e);
+    try {
+      await fncli(commands, { argv: ['node', 'demo.js', 'completions'] });
+    } finally {
+      console.error = origError;
+    }
+    const text = errs.join('\n');
+    assert.ok(/usage: \S* ?completions/.test(text), text);
+    assert.ok(/completions install\b/.test(text), text);
+    assert.ok(/completions script\b/.test(text), text);
+    assert.ok(!/completions v1\b/.test(text), 'v1 stays hidden');
+    assert.ok(!/complete -F/.test(text), 'no stub in the usage output');
   });
 
   it('runtime: `completions v1 -- <proto> <words>` answers on the wire', async function () {

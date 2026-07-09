@@ -33,61 +33,76 @@
 
 const { handle, installation, stubs } = require('shell-complete');
 
-// The token the stub re-invokes us with; also what we route below.
+// The token the stub re-invokes us with.
 const REQUEST = 'completions v1 --';
 
-// Entry point, called by fncli with the words after `completions`, the parsed
-// descriptor (incl. auto --help), and the `completions` config object.
-async function completions(words, opts, config) {
-  const out = config.out || process.stdout;
+// The built-in `completions` command group, injected by fncli as a normal
+// sibling command (see index.js). `ctx` is filled in by fncli before dispatch:
+//   ctx.opts    the full parsed descriptor (incl. auto --help) to complete
+//               against — the same one fncli runs, so options complete as they
+//               parse.
+//   ctx.config  the `completions` option object ({ name, out, handlers }).
+//
+//   myapp completions script [shell]    print the stub for eval/source
+//   myapp completions install [shell]   write the stub to the shell's autoload dir
+//   myapp completions v1 -- <stamp> <word...> <toComplete>
+//                                       per-TAB runtime (what the stub calls);
+//                                       `--` ends option parsing so option-like
+//                                       words reach the handler verbatim.
+function commands(ctx) {
+  const out = () => (ctx.config && ctx.config.out) || process.stdout;
 
-  if (words[0] === 'v1') {
-    // Per-TAB runtime. handle() splits [stamp, ...words, toComplete] off and
-    // answers "show nothing" if the callback throws — no noise at the shell.
-    // `v1` is the version of this request surface; the shell stub also sends
-    // shell-complete's `<shell>/<n>` transport stamp. Tolerate its absence so
+  return {
+    // `HIDE` keeps the whole group out of listings/usage/completion (see
+    // parseSignature) — it stays a normal, dispatchable command, just unlisted.
+    synopsis: 'HIDE',
+    // Write the stub into the shell's autoload dir.
+    install(shell = 'auto') {
+      emit('install', shell, ctx, out());
+    },
+    // Print the stub (for the eval/source rc line).
+    script(shell = 'auto') {
+      emit('script', shell, ctx, out());
+    },
+    // Per-TAB runtime, the internal wire surface. handle() splits
+    // [stamp, ...words, toComplete] off and answers "show nothing" if the
+    // callback throws — no noise at the shell. The stub sends shell-complete's
+    // `<shell>/<n>` transport stamp as the first word; tolerate its absence so
     // the wire is easy to poke by hand: `myapp completions v1 -- checklist ''`.
-    let rest = words[1] === '--' ? words.slice(2) : words.slice(1);
-    if (!/^[a-z]+\/\d+$/.test(rest[0] || '')) rest = [''].concat(rest);
-    return handle((prior, toComplete) => {
-      // The reserved command itself: the user's descriptor knows nothing about
-      // `completions`, so complete its own surface here.
-      if (prior[0] === 'completions') return selfReply(prior, toComplete);
-      return reply(decode(prior, toComplete, opts), config);
-    }, rest, { out });
-  }
+    // Its own `HIDE` synopsis keeps it unlisted even within `completions`.
+    v1(
+      // HIDE
+      stamp = '',
+      ...word
+    ) {
+      let rest = [stamp].concat(word);
+      if (!/^[a-z]+\/\d+$/.test(rest[0] || '')) rest = [''].concat(rest);
+      // Complete the `shell` argument of install/script from the known shells;
+      // a user handler of the same name still wins.
+      const cfg = Object.assign({}, ctx.config, {
+        handlers: Object.assign({ shell: stubs.shells.slice().sort() }, ctx.config && ctx.config.handlers),
+      });
+      return handle((prior, toComplete) => reply(decode(prior, toComplete, ctx.opts), cfg), rest, { out: out() });
+    },
+  };
+}
 
-  // Install flow: `script [shell]` prints the stub (for the eval/source rc
-  // line); `install [shell]` writes it into the shell's autoload dir.
-  const action = words[0];
-  if (action === 'script' || action === 'install') {
-    let inst;
-    try {
-      inst = installation({ request: REQUEST, name: config.name || programName(opts), shell: words[1] || 'auto' });
-    } catch (e) {
-      // e.g. an unknown shell name
-      process.exitCode = 2;
-      console.error('error: ' + (e && e.message ? e.message : e));
-      return;
-    }
-    if (action === 'install') {
-      out.write('installed ' + inst.shell + ' completion: ' + inst.install() + '\n');
-    } else {
-      out.write(inst.script);
-    }
+// `script` prints the stub; `install` writes it into the shell's autoload dir.
+function emit(action, shell, ctx, out) {
+  let inst;
+  try {
+    inst = installation({ request: REQUEST, name: (ctx.config && ctx.config.name) || programName(ctx.opts), shell: shell || 'auto' });
+  } catch (e) {
+    // e.g. an unknown shell name
+    process.exitCode = 2;
+    console.error('error: ' + (e && e.message ? e.message : e));
     return;
   }
-
-  // No (or unknown) action: help.
-  const name = config.name || programName(opts);
-  out.write(
-    'usage: ' + name + ' completions install|script [shell]\n' +
-    '\n' +
-    '  To test completions without installing, run\n' +
-    '  eval "$(' + name + ' completions script bash)"    # bash\n' +
-    '  eval "$(' + name + ' completions script zsh)"     # zsh\n' +
-    '  ' + name + ' completions script fish | source     # fish\n'
-  );
+  if (action === 'install') {
+    out.write('installed ' + inst.shell + ' completion: ' + inst.install() + '\n');
+  } else {
+    out.write(inst.script);
+  }
 }
 
 // The command name the stub registers against: explicit option wins, else the
@@ -95,16 +110,6 @@ async function completions(words, opts, config) {
 function programName(opts) {
   const arg0 = (opts && opts.arg0) || 'cli';
   return arg0.split('/').pop().replace(/\.[cm]?js$/, '');
-}
-
-// Completing the reserved command's own surface: its actions, then a shell
-// name. The hidden `v1` runtime is deliberately not offered.
-function selfReply(prior, toComplete) {
-  if (prior.length === 1) return filterByPrefix(['install', 'script'], toComplete);
-  if (prior.length === 2 && (prior[1] === 'install' || prior[1] === 'script')) {
-    return filterByPrefix(stubs.shells.slice().sort(), toComplete);
-  }
-  return []; // nothing more to offer
 }
 
 // Seam A — cursor-aware decode: (prior words, cursor word, descriptor) ->
@@ -118,19 +123,36 @@ function decode(prior, toComplete, optDesc) {
   // we know which positional the cursor is on.
   const commandPath = [];
   let positionalIndex = 0;
-  for (let i = 0; i < prior.length; i++) {
+  let i = 0;
+  while (i < prior.length) {
     const token = prior[i];
-    if (optDesc.commands && optDesc.commands[token]) {
+    if (optDesc.commands && optDesc.commands[token] && token !== '') {
       commandPath.push(token);
       optDesc = optDesc.commands[token].optDesc;
+      positionalIndex = 0;
+      i++;
+    } else if (optDesc.commands && optDesc.commands['']) {
+      // Default ('') command: the token isn't a named sub-command, so descend
+      // into the default *without* consuming it (mirrors decodeArgs) and
+      // reprocess it against the default's own args/options.
+      commandPath.push('');
+      optDesc = optDesc.commands[''].optDesc;
       positionalIndex = 0;
     } else if (token.charAt(0) === '-') {
       // A bare value-taking flag consumes the NEXT token as its (detached)
       // value, so skip it — otherwise that value is miscounted as a positional.
       if (awaitingValueOption(optDesc, token)) i++;
+      i++;
     } else {
       positionalIndex++;
+      i++;
     }
+  }
+  // Nothing typed past the group yet (or the cursor sits at the group): the
+  // default owns the position, so classify against it rather than listing ''.
+  if (optDesc.commands && optDesc.commands['']) {
+    commandPath.push('');
+    optDesc = optDesc.commands[''].optDesc;
   }
 
   // Detached value: the prior token is a value-taking flag still awaiting its
@@ -247,6 +269,9 @@ async function reply(state, config) {
     const items = [];
     for (const name in optDesc.commands || {}) {
       const d = optDesc.commands[name].optDesc || {};
+      // Skip the '' default (it has no name to type) and hidden commands (the
+      // injected `completions`/`v1` wire surface).
+      if (name === '' || d.hidden) continue;
       items.push({ value: name, description: summary(d.synopsis) });
     }
     return filterByPrefix(items, toComplete);
@@ -360,7 +385,8 @@ function summary(synopsis) {
   return line || undefined;
 }
 
-module.exports = completions;
+module.exports = commands;
+module.exports.commands = commands;
 module.exports.REQUEST = REQUEST;
 module.exports.decode = decode;
 module.exports.reply = reply;

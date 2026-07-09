@@ -177,6 +177,23 @@ describe('parseSignature', function () {
       positional: [{name: 'arg', rest: false, required: true, synopsis: null}]
     });
   });
+  it('a `HIDE` synopsis marks a function hidden and clears the synopsis', function () {
+    let result = parseSignature((x) => 0);
+    assert.strictEqual(result.hidden, undefined, 'ordinary commands carry no hidden field');
+    let hidden = parseSignature(function (
+      // HIDE
+      x
+    ) {});
+    assert.strictEqual(hidden.hidden, true);
+    assert.strictEqual(hidden.synopsis, null, 'the HIDE sentinel is consumed');
+  });
+  it('a `HIDE` group synopsis marks the group hidden', function () {
+    let result = parseSignature({synopsis: 'HIDE', a() {}, b() {}});
+    assert.strictEqual(result.hidden, true);
+    assert.strictEqual(result.synopsis, null);
+    // The sub-commands are unaffected — still dispatchable.
+    assert.deepEqual(Object.keys(result.commands), ['a', 'b']);
+  });
 });
 
 describe('parseSignature commands', function () {

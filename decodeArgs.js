@@ -15,6 +15,16 @@
 module.exports = function decodeArgs(optDesc, argv) {
   let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null, commandPath: []};
   let args = argv.concat(), pos = optDesc.positional.concat();
+  // Default command: when this group has a '' entry and the first token isn't
+  // a named sub-command, dispatch to the default *without* consuming the token
+  // — its args/options belong to the default. fncli injects '' so `fncli(fn)`
+  // runs fn while `completions` stays a normal sibling command.
+  if (optDesc.commands && optDesc.commands[''] && !optDesc.commands[args[0]]) {
+    result.command = optDesc.commands[''];
+    result.commandPath.push('');
+    optDesc = result.command.optDesc;
+    pos = optDesc.positional.concat();
+  }
   let arg, m, ix = 0, allowOptions = true, inRest = null;
   while (ix < args.length) {
     arg = args[ix++];

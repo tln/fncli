@@ -87,6 +87,7 @@ module.exports = function usage({optDesc, error, command, commandPath, isHelp}) 
     const listCtx = {snipped: false, collapsed: false, full: false, helpEnabled, width};
     const cmdPathArray = commandPath || [];
     for (let {name, optDesc: commandOptDesc} of Object.values(target.commands)) {
+      if (commandOptDesc.hidden) continue; // injected completions surface
       commandsSection += formatCommandUsage(arg0, cmdPathArray, name, commandOptDesc, listCtx);
     }
   }
@@ -119,7 +120,10 @@ function formatUsageLine(arg0, optDesc, command, commandPath, ctx) {
   let s = basename(arg0);
 
   if (command) {
-    s += " " + (commandPath && commandPath.length ? commandPath.join(' ') : command.name);
+    // The '' default command contributes no path segment — render like a plain
+    // function CLI (`usage: prog <args>`), not `usage: prog  <args>`.
+    const segments = (commandPath && commandPath.length ? commandPath : [command.name]).filter(Boolean);
+    if (segments.length) s += " " + segments.join(' ');
   }
 
   s += formatPositionals(optDesc.positional);
@@ -365,6 +369,7 @@ function formatCommandUsage(arg0, parentPath, name, commandOptDesc, ctx) {
   if (commandOptDesc.commands) {
     let s = '';
     for (let {name: childName, optDesc: childOptDesc} of Object.values(commandOptDesc.commands)) {
+      if (childOptDesc.hidden) continue; // injected completions surface
       s += formatCommandUsage(arg0, path, childName, childOptDesc, ctx);
     }
     return s;

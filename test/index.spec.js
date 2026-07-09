@@ -162,6 +162,24 @@ describe('fncli', function () {
       assert(errs[0].match(/Command not found/m), errs);
     });
   });
+  describe('HIDE commands', function () {
+    let commands = {
+      visible() { result = 'visible'; },
+      secret(// HIDE
+        x) { result = {secret: x}; },
+    };
+    it('a HIDE command still dispatches when named', function () {
+      subject(commands, ['secret', 'v']);
+      assert(errs.length === 0, errs);
+      assert.deepEqual(result, {secret: 'v'});
+    });
+    it('a HIDE command is not listed in usage', function () {
+      subject(commands, []);
+      assert(errs.length, 'expected a usage error');
+      assert(/^\s+visible\b/m.test(errs.join('\n')), errs);
+      assert(!/\bsecret\b/.test(errs.join('\n')), errs);
+    });
+  });
   describe('group synopsis', function () {
     let commands = {
       synopsis: 'Tool for doing things.',

@@ -21,13 +21,27 @@ module.exports = function parseSignatures(handlers) {
     let optDesc = parseSignatures(handlers[name]);
     commands[name] = {name, optDesc};
   }
-  return {
+  const optDesc = {
     synopsis,
     optionParamIndex: null,
     options: {},
     positional: [{name: 'command', required: true}],
     commands
   };
+  markHidden(optDesc);
+  return optDesc;
+}
+
+// A command opts out of listings, usage and completion with a `HIDE` synopsis
+// — a `// HIDE` comment on a function, or `synopsis: 'HIDE'` on a group. The
+// sentinel is consumed (synopsis cleared) and recorded as `hidden`. Used for
+// the injected `completions` surface, but available to any command. Only set
+// when true, so an ordinary descriptor keeps exactly its documented shape.
+function markHidden(optDesc) {
+  if (typeof optDesc.synopsis === 'string' && optDesc.synopsis.trim() === 'HIDE') {
+    optDesc.hidden = true;
+    optDesc.synopsis = null;
+  }
 }
 
 
@@ -160,6 +174,7 @@ function parseSignature(fn) {
   });
 
   // warning if unused comments?
+  markHidden(result);
   return result;
 }
 

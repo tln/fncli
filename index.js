@@ -23,20 +23,25 @@ module.exports = function (commands, {argv=process.argv, ...config}={}) {
 
 function parseAndRun(argv, commands, config) {
   const [, arg0, ...args] = argv;
-  const opts = parseSignature(commands);
+
+  // Shell completion is built in and on by default: the `completions` command
+  // group is injected as an ordinary sibling command (dispatched by name, no
+  // special casing) — it prints/installs the shell stub and answers the per-TAB
+  // runtime (`completions v1 -- …`). A bare function becomes the '' default
+  // command, so `fncli(fn)` runs fn while `completions` sits beside it. Opt out
+  // (freeing the name) with {completions: false}.
+  const cctx = { config: config.completions || {} };
+  const runnable = buildRunnable(commands, config, cctx);
+
+  const opts = parseSignature(runnable);
   opts.arg0 = arg0;
   if (config.help) {
     addHelpOption(opts);
   }
-  // Shell completion: built in and on by default. The reserved `completions`
-  // command is routed to completions.js before normal decoding — it prints or
-  // installs the shell stub, and answers the per-TAB runtime request
-  // (`completions v1 -- …`). `opts` is the prepared descriptor fncli itself
-  // runs against (incl. auto --help), so options complete exactly as they
-  // parse. Opt out (freeing the name) with {completions: false}.
-  if (config.completions !== false && args[0] === 'completions') {
-    return completions(args.slice(1), opts, config.completions || {});
-  }
+  cctx.opts = opts;
+  // The `completions` group and its `v1` runtime hide themselves via a `HIDE`
+  // synopsis (see completions.js / parseSignature), so nothing to poke here.
+
   const decoded = decodeArgs(opts, args);
   const isHelpRequested = config.help && decoded.optionValues.help;
   if (isHelpRequested) {
@@ -52,9 +57,21 @@ function parseAndRun(argv, commands, config) {
       console.error(text);
     }
   } else {
-    const func = getHandler(commands, decoded.commandPath);
+    const func = getHandler(runnable, decoded.commandPath);
     applyFunc(decoded, func);
   }
+}
+
+// Assemble the runnable command map: the user's commands plus the built-in
+// `completions` group. A bare function becomes the '' default command, so
+// `fncli(fn)` === `fncli({ '': fn })` with `completions` as a sibling.
+function buildRunnable(commands, config, cctx) {
+  if (config.completions === false) return commands;
+  const group = completions.commands(cctx);
+  if (typeof commands === 'function') {
+    return { '': commands, completions: group };
+  }
+  return Object.assign({}, commands, { completions: group });
 }
 
 // Register --help on the top-level descriptor and every (nested) command, so
