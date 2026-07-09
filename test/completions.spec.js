@@ -72,7 +72,8 @@ describe('completions decode', function () {
 
   it('a bare `-c` completes as the option token, not an attached value', function () {
     // Short values are detached (`-c val`): complete `-c` itself (plus the
-    // space), never fall to a file completion matching `-c*`.
+    // space), so the value then completes as its own word — uniform across
+    // enumerated / { ext } / file handlers, never matching `-c*` as a file.
     const state = decode(['config'], '-c', opts);
     assert.strictEqual(state.expecting, 'option');
     assert.strictEqual(state.toComplete, '-c');
@@ -118,9 +119,60 @@ describe('completions reply', function () {
     assert.deepStrictEqual(r.map((i) => i.value).sort(), ['config', 'main']);
   });
 
-  it('option position -> long (with =, it takes a value) and short tokens', async function () {
+  it('option position -> the long form only (its `-c` alias is not offered)', async function () {
     const r = await reply({ expecting: 'option', optDesc: opts.commands.config.optDesc }, {});
-    assert.deepStrictEqual(r.map((i) => i.value).sort(), ['--config=', '-c']);
+    assert.deepStrictEqual(r.map((i) => i.value).sort(), ['--config=']);
+  });
+
+  it('a short-only option still completes as `-x`', async function () {
+    const shortOpts = parseSignature(function ({ v = false }) {});
+    const r = await reply({ expecting: 'option', optDesc: shortOpts }, {});
+    assert.deepStrictEqual(r.map((i) => i.value), ['-v']);
+  });
+
+  it('--help (and its -h) is never offered', async function () {
+    // The implicit help option fncli registers: name `help`, alias `h`.
+    const help = { name: 'help', alias: 'h', hasArg: false, synopsis: 'Prints this message' };
+    const o = parseSignature(function ({ v: verbose = false }) {});
+    o.options.help = help;
+    o.options.h = help;
+    const r = await reply({ expecting: 'option', optDesc: o }, {});
+    const values = r.map((i) => i.value);
+    assert.deepStrictEqual(values, ['--verbose'], 'only the real flag, no help');
+  });
+
+  // A value option written short/long: `-t` / `--tab`, candidates a|b.
+  describe('a `-t`/`--tab=a|b` value option', function () {
+    const tabOpts = parseSignature(function ({ t: tab = '' }) {});
+    const tabConfig = { handlers: { tab: ['a', 'b'] } };
+
+    it('`-<TAB>` offers only the long form (`--tab=`), not `-t`', async function () {
+      const state = decode([], '-', tabOpts);
+      const r = await reply(state, tabConfig);
+      assert.deepStrictEqual(r.map((i) => i.value), ['--tab=']);
+    });
+
+    it('`-t<TAB>` completes the flag token (`-t `), value then detached', async function () {
+      // Not the attached `-ta`/`-tb`: `-t` completes with a space so the value
+      // completes as its own word (uniform across enumerated/{ext}/file).
+      const state = decode([], '-t', tabOpts);
+      assert.strictEqual(state.expecting, 'option');
+      const r = await reply(state, tabConfig);
+      assert.deepStrictEqual(r.map((i) => i.value), ['-t']);
+    });
+
+    it('`-t <TAB>` (detached) then completes the value candidates', async function () {
+      const state = decode(['-t'], '', tabOpts);
+      assert.strictEqual(state.expecting, 'optionValue');
+      const r = await reply(state, tabConfig);
+      assert.deepStrictEqual(r, ['a', 'b']);
+    });
+
+    it('`-tb<TAB>` (attached, user-typed) still completes attached', async function () {
+      const state = decode([], '-tb', tabOpts);
+      const r = await reply(state, tabConfig);
+      assert.deepStrictEqual(r, ['-tb']);
+    });
   });
 
   it('a value option completes as `--name=` with noSpace', async function () {

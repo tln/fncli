@@ -170,8 +170,9 @@ function decode(prior, toComplete, optDesc) {
   // `-c<partial>`: short option that takes a value (fncli accepts `-cval`),
   // completing that value attached to the flag. A bare `-c` is NOT a value
   // position — it falls through to the option branch and completes as the
-  // token plus a space, so the value is then completed detached (where a
-  // file fallback matches real paths, not `-c*`).
+  // token plus a space, so the value is then completed detached (uniform across
+  // enumerated / { ext } / file handlers; the shell matches real paths, not
+  // `-c*`).
   const shortEq = toComplete.match(/^-([A-Za-z0-9])(.+)$/);
   if (shortEq) {
     const opt = (optDesc.options || {})[shortEq[1]];
@@ -252,7 +253,7 @@ async function reply(state, config) {
   }
 
   if (state.expecting === 'option') {
-    return filterByPrefix(optionItems(optDesc), toComplete);
+    return filterByPrefix(optionItems(optDesc, toComplete), toComplete);
   }
 
   if (state.expecting === 'optionValue' || state.expecting === 'positional') {
@@ -307,19 +308,31 @@ function filterByPrefix(items, prefix) {
 }
 
 // The option tokens for a descriptor: each distinct option contributes its long
-// (`--kebab-case`) and/or short (`-x`) forms. opts.options is keyed by both name
-// and alias pointing at one object, so dedupe by identity. Value options
-// complete as `--name=` with noSpace so the cursor stays put for the value.
-function optionItems(optDesc) {
+// (`--kebab-case`) form; a short form contributes `-x`. opts.options is keyed by
+// both name and alias pointing at one object, so dedupe by identity. Value
+// options complete as `--name=` with noSpace so the cursor stays put for the
+// value. Two deliberate rules: `--help` / its `-h` is never offered, and a long
+// flag's `-x` alias is not listed at a bare `-<TAB>` — it would be noise beside
+// the long form. That alias is still offered once the user reaches for it
+// (`-x…`), so typing `-t<TAB>` completes to `-t ` and its value then completes
+// detached. A short-ONLY option (no long form) always lists — it is the only
+// way to name that option.
+function optionItems(optDesc, toComplete) {
+  // The user has reached for a short form: `-x…` (dash then an alnum).
+  const reachingShort = /^-[A-Za-z0-9]/.test(toComplete || '');
   const items = [];
   const seen = new Set();
   for (const key in optDesc.options || {}) {
     const opt = optDesc.options[key];
     if (seen.has(opt)) continue;
     seen.add(opt);
-    for (const id of [opt.name, opt.alias]) {
-      if (!id) continue;
+    const ids = [opt.name, opt.alias].filter(Boolean);
+    if (ids.some((id) => camelToKebab(id) === 'help')) continue; // don't complete --help
+    const hasLong = ids.some((id) => id.length > 1);
+    for (const id of ids) {
       if (id.length === 1) {
+        // A long flag's short alias is suppressed until the user types `-x…`.
+        if (hasLong && !reachingShort) continue;
         // short: value is `-c val` / `-cval`, no `=`
         items.push({ value: '-' + id, description: summary(opt.synopsis) });
       } else {
