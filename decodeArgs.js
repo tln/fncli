@@ -87,12 +87,16 @@ module.exports = function decodeArgs(optDesc, argv) {
         // switch to handling optDesc from command. Don't include the
         // command name in the result. Nested groups re-enter here on
         // the next positional, consuming one path segment per level.
-        result.command = optDesc.commands[arg];
-        if (!result.command) {
+        const next = optDesc.commands[arg];
+        if (!next) {
+          // Unknown command: leave `command`/`commandPath` at the last group we
+          // did resolve, so usage describes *that* group (its sub-commands)
+          // rather than reprinting the top level with a stray prefix.
           result.error = "Command not found";
         } else {
+          result.command = next;
           result.commandPath.push(arg);
-          optDesc = result.command.optDesc;
+          optDesc = next.optDesc;
           pos = optDesc.positional.concat();
         }
         continue;

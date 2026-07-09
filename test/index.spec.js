@@ -161,6 +161,20 @@ describe('fncli', function () {
       assert(errs.length);
       assert(errs[0].match(/Command not found/m), errs);
     });
+
+    it('an unknown sub-command shows the group usage, not a doubled prefix', function () {
+      // Regression: a failed lookup inside `secrets` must keep `secrets` as the
+      // resolved command, so usage lists `secrets add`/`secrets deploy` — not
+      // the top level reprinted with a stray `secrets ` (which doubled the
+      // group to `secrets secrets add`).
+      subject(commands, ['secrets', 'nope']);
+      const out = errs.join('\n');
+      assert(/usage: script.js secrets/.test(out), out);
+      assert(/^\s+secrets add\b/m.test(out), out);
+      assert(!/secrets secrets/.test(out), out);
+      // The sibling top-level command is not relisted under `secrets`.
+      assert(!/secrets status\b/.test(out), out);
+    });
   });
   describe('HIDE commands', function () {
     let commands = {
