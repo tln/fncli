@@ -14,6 +14,12 @@
  */
 module.exports = function decodeArgs(optDesc, argv) {
   let result = {optDesc, values: {}, optionValues: {}, apply: [], command: null, commandPath: []};
+  // Only one error is reported, and it is the FIRST one found — later problems
+  // are usually knock-on effects of it. Assigning directly would let the
+  // trailing required-args check overwrite the real cause, so eg `prog --foo`
+  // (with a required arg) reported "Missing required argument" rather than the
+  // unknown option the user actually typed.
+  const setError = (message) => { if (!result.error) result.error = message; };
   let args = argv.concat(), pos = optDesc.positional.concat();
   // Default command: when this group has a '' entry and the first token isn't
   // a named sub-command, dispatch to the default *without* consuming the token
@@ -37,12 +43,12 @@ module.exports = function decodeArgs(optDesc, argv) {
       optName = kebabToCamelCase(optName);
       let {name, hasArg} = optDesc.options[optName] || {};
       if (!name) {
-        result.error = "Unknown option";
+        setError("Unknown option");
       } else if (hasArg) {
         if (!optVal) optVal = args[ix++]; // may access off end of array -- that's ok
-        if (!optVal) result.error = "Option missing value";
+        if (!optVal) setError("Option missing value");
       } else {
-        if (optVal) result.error = "Didn't expect value for flag argument";
+        if (optVal) setError("Didn't expect value for flag argument");
         optVal = true;
       }
       result.optionValues[name] = optVal;
@@ -56,12 +62,12 @@ module.exports = function decodeArgs(optDesc, argv) {
         let {name, hasArg} = optDesc.options[flag] || {};
         let optVal = null;
         if (!name) {
-          result.error = "Unknown option";
+          setError("Unknown option");
         } else if (hasArg) {
           optVal = arg;
           arg = '';
           if (!optVal) optVal = args[ix++];
-          if (!optVal) result.error = "Option missing value";
+          if (!optVal) setError("Option missing value");
         } else {
           optVal = true;
         }
@@ -82,7 +88,7 @@ module.exports = function decodeArgs(optDesc, argv) {
       result.values[inRest] = result.values[inRest].concat(restArgs);
     } else {
       let {name, rest} = pos.shift() || {};
-      if (!name) result.error = "Too many arguments";
+      if (!name) setError("Too many arguments");
       if (optDesc.commands) {
         // switch to handling optDesc from command. Don't include the
         // command name in the result. Nested groups re-enter here on
@@ -92,7 +98,7 @@ module.exports = function decodeArgs(optDesc, argv) {
           // Unknown command: leave `command`/`commandPath` at the last group we
           // did resolve, so usage describes *that* group (its sub-commands)
           // rather than reprinting the top level with a stray prefix.
-          result.error = "Command not found";
+          setError("Command not found");
         } else {
           result.command = next;
           result.commandPath.push(arg);
@@ -113,7 +119,7 @@ module.exports = function decodeArgs(optDesc, argv) {
   }
   for (let {rest, required} of pos) {
     if (required) {
-      result.error = "Missing required argument";
+      setError("Missing required argument");
     } else if (!rest) {
       result.apply.push(undefined);
     }

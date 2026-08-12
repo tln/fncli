@@ -21,6 +21,19 @@ describe('decodeArgs', function () {
     let result = decodeArgs(opts, ['--foo']);
     assert.ok(result.error);
   });
+  it('reports the first error, not the last', function () {
+    // `--foo` is unknown AND the required `host` is missing. The unknown
+    // option is what the user typed wrong, so it must not be masked by the
+    // missing-argument check that runs afterwards.
+    let result = decodeArgs(opts, ['--foo']);
+    assert.equal(result.error, 'Unknown option');
+    // An unknown command likewise outranks the option error that follows it.
+    let cmdOpts = {
+      optionParamIndex: null, options: {}, positional: [{name: 'command', required: true}],
+      commands: {real: {name: 'real', optDesc: {options: {}, positional: []}}}
+    };
+    assert.equal(decodeArgs(cmdOpts, ['nosuch', '--bar']).error, 'Command not found');
+  });
   it('parses 1 arg', function () {
     let result = decodeArgs(opts, ['x']);
     assert(!result.error);
