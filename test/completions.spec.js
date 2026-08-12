@@ -132,7 +132,7 @@ describe('completions reply', function () {
 
   it('--help (and its -h) is never offered', async function () {
     // The implicit help option fncli registers: name `help`, alias `h`.
-    const help = { name: 'help', alias: 'h', hasArg: false, synopsis: 'Prints this message' };
+    const help = { name: 'help', alias: 'h', hasArg: false, builtin: true, synopsis: 'Prints this message' };
     const o = parseSignature(function ({ v: verbose = false }) {});
     o.options.help = help;
     o.options.h = help;

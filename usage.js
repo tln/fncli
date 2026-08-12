@@ -113,8 +113,23 @@ module.exports = function usage({optDesc, error, command, commandPath, isHelp}) 
     s += theme.label('commands:') + '\n\n' + commandsSection + '\n';
   }
 
+  // Full help closes with a `version:` section, in the same labelled shape as
+  // args:/options:/commands:. Error usage stays terse and omits it. The
+  // commands listing already ends in a blank line, so normalize the gap to one.
+  if (isHelp && optDesc.version) {
+    s = s.replace(/\n+$/, '\n\n');
+    s += theme.label('version:') + '\n  ' + optDesc.version + '\n';
+  }
+
   return s;
 };
+
+// The program identity line: `<prog> version <version>`, what --version prints.
+// Full help shows the same version in its own `version:` section instead.
+function versionText({arg0, version}) {
+  return basename(arg0) + ' version ' + version;
+}
+module.exports.versionText = versionText;
 
 function formatUsageLine(arg0, optDesc, command, commandPath, ctx) {
   let s = basename(arg0);
@@ -149,7 +164,7 @@ function formatPositionals(positional) {
 function inlineOptionText(options, fmt) {
   let s = '';
   const optKeys = Object.entries(options)
-    .filter(([key, opt]) => key === opt.name && opt.name !== 'help')
+    .filter(([key, opt]) => key === opt.name && !opt.builtin)
     .map(([, opt]) => opt);
 
   for (let {name, alias, hasArg} of optKeys) {
@@ -297,12 +312,12 @@ function formatDetailRows(positional, options, indent, {ctx = {snipped: false, f
     rows.push({label, colored: theme.argument(label), synopsis});
   }
 
-  for (let [key, {name, alias, hasArg, synopsis}] of Object.entries(options)) {
-    // Skip alias entries (rendered with their canonical name) and the
-    // implicit help flag (advertised only via helpRow, when something was
-    // snipped); options without a description only appear when includeAll
-    // is set.
-    if (key !== name || name === 'help') continue;
+  for (let [key, {name, alias, hasArg, synopsis, builtin}] of Object.entries(options)) {
+    // Skip alias entries (rendered with their canonical name) and fncli's own
+    // injected flags — help (advertised only via helpRow, when something was
+    // snipped) and version (advertised by the `version:` section); options
+    // without a description only appear when includeAll is set.
+    if (key !== name || builtin) continue;
     if (!synopsis && !includeAll) continue;
     let label, colored;
     if (alias) {

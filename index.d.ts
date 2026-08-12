@@ -16,6 +16,9 @@ declare module 'fncli' {
     function fncli(commands: any, config?: {
         argv?: string[];
         help?: boolean;
+        // Adds --version and a `version:` section to full help.
+        // Explicit: pass it, eg { version } from your package.json.
+        version?: string;
         // Built-in `completions` command; on by default. false disables it.
         completions?: false | {
             name?: string;                              // stub name (default: arg0 basename)

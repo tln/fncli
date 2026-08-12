@@ -38,11 +38,27 @@ function parseAndRun(argv, commands, config) {
   if (config.help) {
     addHelpOption(opts);
   }
+  // `version` is explicit: fncli never guesses it. Pass the string (eg
+  // `{version: require('./package.json').version}`) and `--version` is
+  // registered and full help gains a `version:` section.
+  if (config.version) {
+    opts.version = String(config.version);
+    addVersionOption(opts);
+  }
   cctx.opts = opts;
   // The `completions` group and its `v1` runtime hide themselves via a `HIDE`
   // synopsis (see completions.js / parseSignature), so nothing to poke here.
 
   const decoded = decodeArgs(opts, args);
+  // --version wins over --help and over any decode error: it answers a question
+  // about the program, not about this invocation. Only fncli's own option
+  // triggers it — a user-defined `version` option is theirs to handle.
+  const active = decoded.command ? decoded.command.optDesc : opts;
+  const versionOpt = active.options.version;
+  if (versionOpt && versionOpt.builtin && decoded.optionValues.version) {
+    console.log(usage.versionText(opts));
+    return;
+  }
   const isHelpRequested = config.help && decoded.optionValues.help;
   if (isHelpRequested) {
     decoded.error = true;
@@ -84,12 +100,26 @@ function addHelpOption(optDesc) {
     }
   }
   if (optDesc.options.help) return;
-  const help = {name: 'help', hasArg: false, synopsis: 'Prints this message'};
+  const help = {name: 'help', hasArg: false, builtin: true, synopsis: 'Prints this message'};
   if (!optDesc.options.h) {
     help.alias = 'h';
     optDesc.options.h = help;
   }
   optDesc.options.help = help;
+}
+
+// Register --version everywhere --help goes, and for the same reason: a bare
+// function is wrapped as the '' default command, so decoding never consults the
+// top-level options. No short alias — `-V` is left to the user. A user-defined
+// `version` option is left alone.
+function addVersionOption(optDesc) {
+  if (optDesc.commands) {
+    for (let name in optDesc.commands) {
+      addVersionOption(optDesc.commands[name].optDesc);
+    }
+  }
+  if (optDesc.options.version) return;
+  optDesc.options.version = {name: 'version', hasArg: false, builtin: true, synopsis: 'Prints the version'};
 }
 
 function getHandler(commands, commandPath) {

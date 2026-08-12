@@ -346,6 +346,71 @@ describe('fncli', function () {
     });
   });
 
+  describe('adds a version option', function () {
+    it('prints the version to stdout', function () {
+      let x = 0, fn = () => x++;
+      subject(fn, ['--version'], {version: '1.2.3'});
+      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert(errs.length === 0, errs);
+      assert(x === 0, 'handler should not run');
+    });
+    it('is absent unless a version is configured', function () {
+      let fn = () => {};
+      subject(fn, ['--version']);
+      assert(/Unknown option/.test(errs.join('\n')), errs);
+    });
+    it('answers even when required args are missing', function () {
+      let fn = (required) => {};
+      subject(fn, ['--version'], {version: '1.2.3'});
+      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert(errs.length === 0, errs);
+    });
+    it('wins over --help', function () {
+      let fn = () => {};
+      subject(fn, ['--help', '--version'], {version: '1.2.3'});
+      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+    });
+    it('works after a sub-command', function () {
+      let commands = {sub(x) {}, b() {}};
+      subject(commands, ['sub', '--version'], {version: '1.2.3'});
+      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert(errs.length === 0, errs);
+    });
+    it('answers after an unknown command, at any nesting level', function () {
+      let commands = {sql: {run(q) {}}, status() {}};
+      subject(commands, ['nosuch', '--version'], {version: '1.2.3'});
+      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      subject(commands, ['sql', 'nosuch', '--version'], {version: '1.2.3'});
+      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert(errs.length === 0, errs);
+    });
+    it('does not add -V', function () {
+      let fn = () => {};
+      subject(fn, ['-V'], {version: '1.2.3'});
+      assert(/Unknown option/.test(errs.join('\n')), errs);
+    });
+    it('leaves a user-defined version option alone', function () {
+      let fn = ({version}) => result = version;
+      subject(fn, ['--version=mine'], {version: '1.2.3'});
+      assert.equal(result, 'mine');
+      assert(outs.length === 0, outs);
+    });
+    it('is not advertised in the usage text', function () {
+      let fn = (y) => {};
+      subject(fn, [], {version: '1.2.3'});
+      assert(errs.length, 'expected a usage error');
+      assert(!/--version/.test(errs.join('\n')), errs);
+    });
+    it('closes full help with a version: section, but not error usage', function () {
+      let fn = (y='1') => {};
+      subject(fn, ['--help'], {version: '1.2.3'});
+      assert(/\n\nversion:\n  1\.2\.3\n$/.test(outs.join('\n')), outs);
+      subject(fn, ['a', 'b'], {version: '1.2.3'});
+      assert(errs.length, 'expected a usage error');
+      assert(!/1\.2\.3/.test(errs.join('\n')), errs);
+    });
+  });
+
   describe('short option rendering', function () {
     it('renders a short option arg as "-o <value>", not "-o=<value>"', function () {
       // The `=` form is a long-option convention; the parser keeps the `=` as

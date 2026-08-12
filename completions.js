@@ -338,8 +338,9 @@ function filterByPrefix(items, prefix) {
 // (`--kebab-case`) form; a short form contributes `-x`. opts.options is keyed by
 // both name and alias pointing at one object, so dedupe by identity. Value
 // options complete as `--name=` with noSpace so the cursor stays put for the
-// value. Two deliberate rules: `--help` / its `-h` is never offered, and a long
-// flag's `-x` alias is not listed at a bare `-<TAB>` — it would be noise beside
+// value. Two deliberate rules: fncli's own injected flags (`--help` / its `-h`,
+// and `--version`) are never offered, and a long flag's `-x` alias is not
+// listed at a bare `-<TAB>` — it would be noise beside
 // the long form. That alias is still offered once the user reaches for it
 // (`-x…`), so typing `-t<TAB>` completes to `-t ` and its value then completes
 // detached. A short-ONLY option (no long form) always lists — it is the only
@@ -353,8 +354,8 @@ function optionItems(optDesc, toComplete) {
     const opt = optDesc.options[key];
     if (seen.has(opt)) continue;
     seen.add(opt);
+    if (opt.builtin) continue; // don't complete fncli's own --help / --version
     const ids = [opt.name, opt.alias].filter(Boolean);
-    if (ids.some((id) => camelToKebab(id) === 'help')) continue; // don't complete --help
     const hasLong = ids.some((id) => id.length > 1);
     for (const id of ids) {
       if (id.length === 1) {

@@ -87,6 +87,7 @@ With `tsc`, `target: "ES2017"` or higher and don't enable `removeComments`. Or k
 |                                       |                                        |
 | `--` in argv                          | stops option parsing                   |
 | `-h` / `--help`                       | added by default                       |
+| `fncli(cmds, {version})`              | adds `--version`, and a `version:` section to `--help` |
 
 ## Shell completion
 
