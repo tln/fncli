@@ -350,7 +350,7 @@ describe('fncli', function () {
     it('prints the version to stdout', function () {
       let x = 0, fn = () => x++;
       subject(fn, ['--version'], {version: '1.2.3'});
-      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert.equal(outs.join('\n'), 'script.js v1.2.3');
       assert(errs.length === 0, errs);
       assert(x === 0, 'handler should not run');
     });
@@ -362,27 +362,33 @@ describe('fncli', function () {
     it('answers even when required args are missing', function () {
       let fn = (required) => {};
       subject(fn, ['--version'], {version: '1.2.3'});
-      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert.equal(outs.join('\n'), 'script.js v1.2.3');
       assert(errs.length === 0, errs);
     });
     it('wins over --help', function () {
       let fn = () => {};
       subject(fn, ['--help', '--version'], {version: '1.2.3'});
-      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert.equal(outs.join('\n'), 'script.js v1.2.3');
     });
     it('works after a sub-command', function () {
       let commands = {sub(x) {}, b() {}};
       subject(commands, ['sub', '--version'], {version: '1.2.3'});
-      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert.equal(outs.join('\n'), 'script.js v1.2.3');
       assert(errs.length === 0, errs);
     });
     it('answers after an unknown command, at any nesting level', function () {
       let commands = {sql: {run(q) {}}, status() {}};
       subject(commands, ['nosuch', '--version'], {version: '1.2.3'});
-      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert.equal(outs.join('\n'), 'script.js v1.2.3');
       subject(commands, ['sql', 'nosuch', '--version'], {version: '1.2.3'});
-      assert.equal(outs.join('\n'), 'script.js version 1.2.3');
+      assert.equal(outs.join('\n'), 'script.js v1.2.3');
       assert(errs.length === 0, errs);
+    });
+    it('does not double the v on a version that already has one', function () {
+      // eg a `git describe` string: v0.6.0-1-g4855e95.
+      let fn = () => {};
+      subject(fn, ['--version'], {version: 'v0.6.0-1-g4855e95'});
+      assert.equal(outs.join('\n'), 'script.js v0.6.0-1-g4855e95');
     });
     it('does not add -V', function () {
       let fn = () => {};

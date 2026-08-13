@@ -124,10 +124,12 @@ module.exports = function usage({optDesc, error, command, commandPath, isHelp}) 
   return s;
 };
 
-// The program identity line: `<prog> version <version>`, what --version prints.
+// The program identity line: `<prog> v<version>`, what --version prints.
 // Full help shows the same version in its own `version:` section instead.
+// A version that already carries the `v` keeps just the one — `git describe`
+// output (v0.6.0-1-g4855e95) is a normal thing to pass through.
 function versionText({arg0, version}) {
-  return basename(arg0) + ' version ' + version;
+  return basename(arg0) + ' ' + (version.startsWith('v') ? version : 'v' + version);
 }
 module.exports.versionText = versionText;
 
