@@ -54,7 +54,7 @@ function parseSignature(fn) {
   };
   // massage source into somthing acorn will parse.
   // 'function(){}' -> '(function(){})'
-  // 'a(){}' -> 'function a(){}'
+  // 'a(){}'        -> '({a(){}})'
 
   let comments = [], options = {
     ecmaVersion: 'latest', 
@@ -64,17 +64,23 @@ function parseSignature(fn) {
   };
   let node, source = '('+fn+')';
   try{
-    node = Parser.parse(source, options)
+    node = Parser.parse(source, options).body[0].expression;
   } catch(e) {
     // function source may be using method shorthand, eg {a(){}}.a.toString() -> 'a() {}'
     // Discard comments collected during the failed parse above; otherwise
     // onComment double-counts every comment (with stale offsets from the old
     // source), polluting later params' descriptions.
     comments.length = 0;
-    source = '(' + fn.toString().replace(/^(async )?/, '$1function ') + ')'
-    node = Parser.parse(source, options)
+    // Put the method back in the object literal it came from, rather than
+    // patching a `function` keyword in front of it. The keyword form can't
+    // express every shorthand: a non-identifier key (`{''(x){}}` — the ''
+    // default command — or `{'my-cmd'(x){}}`) yields `function ''(x){}`, which
+    // is a syntax error. `({...})` re-parses every shorthand acorn can produce
+    // (async, generator, getter/setter, string and computed keys), and the
+    // FunctionExpression is the property's value.
+    source = '({' + fn + '})';
+    node = Parser.parse(source, options).body[0].expression.properties[0].value;
   }
-  node = node.body[0].expression;
   // remove comments after start of body
   comments = comments.filter(c => c[1] < node.body.start)
 

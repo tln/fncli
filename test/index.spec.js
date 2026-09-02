@@ -140,6 +140,30 @@ describe('fncli', function () {
       assert.equal(result, 'status');
     });
 
+    it("dispatches a nested group's '' default command", function () {
+      // Regression: the default was only consulted at the top level, so a
+      // group's own '' entry never ran — `secrets FOO` reported
+      // "Command not found" instead of dispatching to the default.
+      let withDefault = {
+        secrets: {
+          ''(envar, {doit=false}) {
+            result = {command: 'secrets', envar, doit};
+          },
+          add(envar) {
+            result = {command: 'secrets add', envar};
+          }
+        }
+      };
+      subject(withDefault, ['secrets', 'FOO', '--doit']);
+      assert(errs.length === 0, errs);
+      assert.deepEqual(result, {command: 'secrets', envar: 'FOO', doit: true});
+
+      // The named sibling still wins when it is the one typed.
+      subject(withDefault, ['secrets', 'add', 'FOO']);
+      assert(errs.length === 0, errs);
+      assert.deepEqual(result, {command: 'secrets add', envar: 'FOO'});
+    });
+
     it('shows sub-commands when group is given without a sub-command', function () {
       subject(commands, ['secrets']);
       assert(errs.length);

@@ -194,6 +194,42 @@ describe('parseSignature', function () {
     // The sub-commands are unaffected — still dispatchable.
     assert.deepEqual(Object.keys(result.commands), ['a', 'b']);
   });
+  it('parses method shorthand whose key is not an identifier', function () {
+    // Regression: the fallback used to prepend `function `, so the '' default
+    // command written as shorthand produced `function ''(envar) {}` — a syntax
+    // error. Re-wrapping as `({...})` handles any key acorn accepts.
+    let group = {
+      ''(/* the default */
+        envar, // describe envar
+        {doit=false}
+      ) {},
+      'my-cmd'(x) {}
+    };
+    let result = parseSignature(group['']);
+    assert.equal(result.synopsis, 'the default');
+    assert.deepEqual(result.positional, [{name: 'envar', required: true, rest: false, synopsis: 'describe envar'}]);
+    assert.deepEqual(result.options, {doit: {name: 'doit', hasArg: false, synopsis: null}});
+    assert.deepEqual(parseSignature(group['my-cmd']).positional,
+      [{name: 'x', required: true, rest: false, synopsis: null}]);
+  });
+  it('parses method shorthand with a computed key', function () {
+    // toString() hands back the key's *source*, not the resolved name:
+    // {[x](y){}}[x].toString() -> '[x](y) {}'. So the fallback has to parse a
+    // key it cannot evaluate — fine inside `({...})`, where `x` is just an
+    // identifier node, but `function [x](y) {}` is a syntax error.
+    var x = 'tf?';
+    let group = {
+      [x](/* the tf? command */
+        y, // describe y
+        {flag=false}
+      ) {}
+    };
+    assert.deepEqual(Object.keys(group), ['tf?']);
+    let result = parseSignature(group[x]);
+    assert.equal(result.synopsis, 'the tf? command');
+    assert.deepEqual(result.positional, [{name: 'y', required: true, rest: false, synopsis: 'describe y'}]);
+    assert.deepEqual(result.options, {flag: {name: 'flag', hasArg: false, synopsis: null}});
+  });
 });
 
 describe('parseSignature commands', function () {

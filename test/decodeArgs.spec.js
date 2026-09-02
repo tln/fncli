@@ -258,6 +258,57 @@ describe('decodeArgs', function () {
       assert.ok(result.error);
     });
   });
+  describe("the '' default command", function () {
+    let leaf = (name, positional) => ({
+      name,
+      optDesc: {optionParamIndex: null, options: {}, positional}
+    });
+    beforeEach(function () {
+      // A group with both a default and a named sub-command, nested inside a
+      // top-level group that also has a default.
+      let secrets = {
+        name: 'secrets',
+        optDesc: {
+          optionParamIndex: null,
+          options: {},
+          positional: [{name: 'command', rest: false, required: true}],
+          commands: {
+            '': leaf('', [{name: 'envar', rest: false, required: true, synopsis: null}]),
+            add: leaf('add', [{name: 'envar', rest: false, required: true, synopsis: null}])
+          }
+        }
+      };
+      opts = {
+        optionParamIndex: null,
+        options: {},
+        positional: [{name: 'command', rest: false, required: true}],
+        commands: {'': leaf('', [{name: 'x', rest: false, required: false, synopsis: null}]), secrets}
+      };
+    });
+    it('dispatches at the top level without consuming the token', function () {
+      let result = decodeArgs(opts, ['FOO']);
+      assert(!result.error);
+      assert.deepEqual(result.apply, ['FOO']);
+      assert.deepEqual(result.commandPath, ['']);
+    });
+    it('dispatches inside a nested group', function () {
+      let result = decodeArgs(opts, ['secrets', 'FOO']);
+      assert(!result.error, result.error);
+      assert.deepEqual(result.apply, ['FOO']);
+      assert.deepEqual(result.commandPath, ['secrets', '']);
+    });
+    it('dispatches inside a nested group given no further args', function () {
+      let result = decodeArgs(opts, ['secrets']);
+      assert.equal(result.error, 'Missing required argument');
+      assert.deepEqual(result.commandPath, ['secrets', '']);
+    });
+    it('yields to a named sub-command of the nested group', function () {
+      let result = decodeArgs(opts, ['secrets', 'add', 'FOO']);
+      assert(!result.error, result.error);
+      assert.deepEqual(result.apply, ['FOO']);
+      assert.deepEqual(result.commandPath, ['secrets', 'add']);
+    });
+  });
   describe('rest params', function () {
     beforeEach(function () {
       opts = {

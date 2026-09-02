@@ -21,16 +21,22 @@ module.exports = function decodeArgs(optDesc, argv) {
   // unknown option the user actually typed.
   const setError = (message) => { if (!result.error) result.error = message; };
   let args = argv.concat(), pos = optDesc.positional.concat();
-  // Default command: when this group has a '' entry and the first token isn't
-  // a named sub-command, dispatch to the default *without* consuming the token
-  // — its args/options belong to the default. fncli injects '' so `fncli(fn)`
-  // runs fn while `completions` stays a normal sibling command.
-  if (optDesc.commands && optDesc.commands[''] && !optDesc.commands[args[0]]) {
-    result.command = optDesc.commands[''];
-    result.commandPath.push('');
-    optDesc = result.command.optDesc;
-    pos = optDesc.positional.concat();
-  }
+  // Default command: when a group has a '' entry and the next token isn't one
+  // of its named sub-commands, dispatch to the default *without* consuming the
+  // token — its args/options belong to the default. The rule holds at every
+  // nesting level, so this runs once up front and again on entering a nested
+  // group; the loop lets a default that is itself a group hand off to its own
+  // default. fncli injects '' at the top so `fncli(fn)` runs fn while
+  // `completions` stays a normal sibling command.
+  const enterDefault = (token) => {
+    while (optDesc.commands && optDesc.commands[''] && !optDesc.commands[token]) {
+      result.command = optDesc.commands[''];
+      result.commandPath.push('');
+      optDesc = result.command.optDesc;
+      pos = optDesc.positional.concat();
+    }
+  };
+  enterDefault(args[0]);
   let arg, m, ix = 0, allowOptions = true, inRest = null;
   while (ix < args.length) {
     arg = args[ix++];
@@ -104,6 +110,7 @@ module.exports = function decodeArgs(optDesc, argv) {
           result.commandPath.push(arg);
           optDesc = next.optDesc;
           pos = optDesc.positional.concat();
+          enterDefault(args[ix]);
         }
         continue;
       }
