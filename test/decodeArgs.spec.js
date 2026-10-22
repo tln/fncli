@@ -94,6 +94,26 @@ describe('decodeArgs', function () {
     assert.deepEqual(result.values, {host: 'x', module: 'fncli'});
     assert.deepEqual(result.optionValues, {module: 'fncli'});
   });
+  it('parses an explicit empty option=', function () {
+    let result = decodeArgs(opts, ['--module=', 'x']);
+    assert(!result.error, result.error);
+    assert.deepEqual(result.apply, ['x', undefined, {module: ''}]);
+    assert.deepEqual(result.optionValues, {module: ''});
+  });
+  it('parses an option followed by an empty value', function () {
+    let result = decodeArgs(opts, ['--module', '', 'x']);
+    assert(!result.error, result.error);
+    assert.deepEqual(result.apply, ['x', undefined, {module: ''}]);
+    assert.deepEqual(result.optionValues, {module: ''});
+  });
+  it('gives error when option value is missing', function () {
+    let result = decodeArgs(opts, ['x', '--module']);
+    assert.equal(result.error, 'Option missing value');
+  });
+  it('gives error with an empty value for a flag', function () {
+    let result = decodeArgs(opts, ['--verbose=', 'x']);
+    assert.equal(result.error, "Didn't expect value for flag argument");
+  });
   it('does not treat -- as an arg', function () {
     let result = decodeArgs(opts, ['--module=fncli', '--', '-x']);
     assert(!result.error);
@@ -139,6 +159,15 @@ describe('decodeArgs', function () {
       assert.deepEqual(result.apply, ['x', undefined, {m: 'fncli'}]);
       assert.deepEqual(result.values, {host: 'x', m: 'fncli'});
       assert.deepEqual(result.optionValues, {m: 'fncli'});
+    });
+    it('parses an option followed by an empty value', function () {
+      let result = decodeArgs(opts, ['-m', '', 'x']);
+      assert(!result.error, result.error);
+      assert.deepEqual(result.optionValues, {m: ''});
+    });
+    it('gives error when option value is missing', function () {
+      let result = decodeArgs(opts, ['x', '-m']);
+      assert.equal(result.error, 'Option missing value');
     });
     it('parses combined options followed by value', function () {
       let result = decodeArgs(opts, ['x', '-vm', 'fncli']);

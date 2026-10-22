@@ -51,10 +51,12 @@ module.exports = function decodeArgs(optDesc, argv) {
       if (!name) {
         setError("Unknown option");
       } else if (hasArg) {
-        if (!optVal) optVal = args[ix++]; // may access off end of array -- that's ok
-        if (!optVal) setError("Option missing value");
+        // `--opt=` is an explicit empty value and `--opt ''` an empty next arg;
+        // both give "". Only a truly absent value (off the end) is an error.
+        if (optVal === undefined) optVal = args[ix++]; // may access off end of array -- that's ok
+        if (optVal === undefined) setError("Option missing value");
       } else {
-        if (optVal) setError("Didn't expect value for flag argument");
+        if (optVal !== undefined) setError("Didn't expect value for flag argument");
         optVal = true;
       }
       result.optionValues[name] = optVal;
@@ -73,7 +75,7 @@ module.exports = function decodeArgs(optDesc, argv) {
           optVal = arg;
           arg = '';
           if (!optVal) optVal = args[ix++];
-          if (!optVal) setError("Option missing value");
+          if (optVal === undefined) setError("Option missing value");
         } else {
           optVal = true;
         }
